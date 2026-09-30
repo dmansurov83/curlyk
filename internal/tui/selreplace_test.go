@@ -74,3 +74,75 @@ func TestEnterReplacesSelection(t *testing.T) {
 		t.Error("selection must clear after enter")
 	}
 }
+
+// TestModifierKeyKeepsSelection verifies pressing a bare modifier key (e.g. Ctrl)
+// with an active selection does NOT delete it.
+func TestModifierKeyKeepsSelection(t *testing.T) {
+	m := setupSel(t)
+	// A zero KeyMsg models an unrecognised/modifier press with no text payload.
+	// It must leave the selection and text untouched.
+	res, _ := m.handleKey(tea.KeyMsg{})
+	r := res.(model)
+	if got := r.ed.Text(); got != "hello world\n" {
+		t.Errorf("bare modifier must not change text, got %q", got)
+	}
+	if !r.selActive {
+		t.Error("selection must survive a bare modifier press")
+	}
+}
+
+// TestCtrlAtBareDoesNotDelete simulates how a bare Ctrl arrives on Windows
+// (Ctrl+@ / zero KeyMsg) with an active selection: text and selection survive.
+func TestCtrlAtBareDoesNotDelete(t *testing.T) {
+	m := setupSel(t)
+	res, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlAt})
+	r := res.(model)
+	if got := r.ed.Text(); got != "hello world\n" {
+		t.Errorf("bare Ctrl (ctrl+@) must not delete text, got %q", got)
+	}
+	if !r.selActive {
+		t.Error("selection must survive bare Ctrl (ctrl+@)")
+	}
+}
+
+// TestUnknownCtrlComboIgnored verifies an unknown Ctrl combination (e.g.
+// Ctrl+H) is ignored rather than falling through to edit/delete.
+func TestUnknownCtrlComboIgnored(t *testing.T) {
+	m := setupSel(t)
+	res, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlH})
+	r := res.(model)
+	if got := r.ed.Text(); got != "hello world\n" {
+		t.Errorf("unknown Ctrl combo must not delete text, got %q", got)
+	}
+	if !r.selActive {
+		t.Error("selection must survive unknown Ctrl combo")
+	}
+}
+
+// TestBareCtrlRuneKeepsSelection simulates a bare Ctrl arriving as a control
+// rune (Ctrl+@ → NUL, 0x00) on Windows, with an active selection.
+func TestBareCtrlRuneKeepsSelection(t *testing.T) {
+	m := setupSel(t)
+	res, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x00}})
+	r := res.(model)
+	if got := r.ed.Text(); got != "hello world\n" {
+		t.Errorf("bare Ctrl (NUL rune) must not delete text, got %q", got)
+	}
+	if !r.selActive {
+		t.Error("selection must survive bare Ctrl (NUL rune)")
+	}
+}
+
+// TestCtrlLetterRuneKeepsSelection: Ctrl+A arrives as control rune 0x01 and
+// must not replace the selection.
+func TestCtrlLetterRuneKeepsSelection(t *testing.T) {
+	m := setupSel(t)
+	res, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x01}})
+	r := res.(model)
+	if got := r.ed.Text(); got != "hello world\n" {
+		t.Errorf("Ctrl letter (0x01) must not delete text, got %q", got)
+	}
+	if !r.selActive {
+		t.Error("selection must survive Ctrl letter (0x01)")
+	}
+}

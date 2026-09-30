@@ -99,15 +99,16 @@ func TestMouseClickEditorPaneSwitches(t *testing.T) {
 	}
 }
 
-// TestClickRunIconRuns verifies clicking the ▶ icon on a request line triggers a run.
-func TestClickRunIconRuns(t *testing.T) {
+// TestClickRunIconOpensMenu verifies clicking the ▶ icon on a request line opens
+// the action popup instead of running directly.
+func TestClickRunIconOpensMenu(t *testing.T) {
 	m := New(Args{Width: 120, Height: 30}).(model)
 	el := m.layout().editorL
 	m.active = paneEdit
 	m.ed.SetText("### A\nGET http://x/1\n")
 	m.ed.curRow, m.ed.curCol = 1, 0
 
-	// Click at icon column (screen x=fw+1) on request line (row index 1 → y=headerHeight+2).
+	// Click at icon column (screen x=el+1) on request line (row index 1 → y=headerHeight+2).
 	m2, cmd := m.Update(tea.MouseMsg{
 		Button: tea.MouseButtonLeft,
 		Action: tea.MouseActionPress,
@@ -115,16 +116,19 @@ func TestClickRunIconRuns(t *testing.T) {
 		Y:      headerHeight + 2,
 	})
 	r := m2.(model)
-	if cmd == nil {
-		t.Fatal("expected a run Cmd when clicking the run icon on a request line")
+	if cmd != nil {
+		t.Fatal("clicking the run icon must open the menu, not run directly")
 	}
-	if r.state != stateRunning {
-		t.Errorf("state=%v want stateRunning", r.state)
+	if r.actionMenu == nil {
+		t.Fatal("expected action popup after clicking the run icon")
+	}
+	if r.actionMenu.anchorRow != 1 {
+		t.Errorf("menu anchor=%d want 1", r.actionMenu.anchorRow)
 	}
 }
 
 // TestClickRunIconNonRequestNoRun verifies clicking the icon column on a
-// non-request line does NOT start a run.
+// non-request line does NOT open the menu.
 func TestClickRunIconNonRequestNoRun(t *testing.T) {
 	m := New(Args{Width: 120, Height: 30}).(model)
 	el := m.layout().editorL
@@ -139,5 +143,8 @@ func TestClickRunIconNonRequestNoRun(t *testing.T) {
 	})
 	if cmd != nil {
 		t.Fatal("did not expect a run Cmd (clicking separator icon)")
+	}
+	if m.actionMenu != nil {
+		t.Fatal("must not open menu when clicking a non-request icon")
 	}
 }

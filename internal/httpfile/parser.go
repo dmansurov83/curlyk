@@ -12,21 +12,29 @@ const (
 
 // ParseFile parses .http source and returns all request blocks.
 func ParseFile(src string) []Request {
-	var reqs []Request
+var reqs []Request
 	var cur Request
 	mode := modeNone
 	var bodyLines []string
 	seenRequest := false
+	bodyStartLine := 0
+	bodyEndLine := 0
 
 	flush := func() {
 		if seenRequest {
 			cur.Body = joinBody(bodyLines)
+			if bodyStartLine > 0 {
+				cur.BodyStart = bodyStartLine
+				cur.BodyEnd = bodyEndLine
+			}
 			reqs = append(reqs, cur)
 		}
 		cur = Request{}
 		mode = modeNone
 		bodyLines = nil
 		seenRequest = false
+		bodyStartLine = 0
+		bodyEndLine = 0
 	}
 
 	lines := strings.Split(src, "\n")
@@ -69,12 +77,17 @@ func ParseFile(src string) []Request {
 				mode = modeBody
 			} else if mode == modeBody {
 				bodyLines = append(bodyLines, "") // preserve blank lines inside body
+				bodyEndLine = lineNo
 			}
 			continue
 		}
 
 		if mode == modeBody {
 			// Everything in body mode is body text.
+			if bodyStartLine == 0 {
+				bodyStartLine = lineNo
+			}
+			bodyEndLine = lineNo
 			bodyLines = append(bodyLines, line)
 			continue
 		}
@@ -92,6 +105,8 @@ func ParseFile(src string) []Request {
 			}
 			// Not a header: fall through to body (line with no colon => body start).
 			mode = modeBody
+			bodyStartLine = lineNo
+			bodyEndLine = lineNo
 			bodyLines = append(bodyLines, line)
 			continue
 		}

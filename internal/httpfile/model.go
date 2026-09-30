@@ -23,6 +23,12 @@ type Request struct {
 	// Body is the raw request body ("" if none).
 	Body string
 
+	// BodyStart / BodyEnd are the 1-based source lines of the body, inclusive.
+	// Both are 0 when there is no body block. Used to locate/replace the body
+	// text in the editor (e.g. for JSON formatting).
+	BodyStart int
+	BodyEnd   int
+
 	// Line is the 1-based source line where the request line starts.
 	Line int
 }

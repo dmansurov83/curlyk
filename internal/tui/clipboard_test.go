@@ -64,6 +64,19 @@ func TestDoubleClickWordSelection(t *testing.T) {
 	}
 }
 
+// TestCurlPasteCursorOnRequest verifies after pasting+converting a curl the
+// cursor lands on the request line so the request can be run/highlighted.
+func TestCurlPasteCursorOnRequest(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("### keep\n")
+	m.ed.curRow, m.ed.curCol = 0, 0
+	m.pasteOrConvert("curl -X 'POST' 'https://api.test/items' -H 'Content-Type: application/json'")
+	if !isRequestLine(m.ed.Lines(), m.ed.curRow) {
+		t.Errorf("cursor must be on the request line, got row=%d col=%d\n%s", m.ed.curRow, m.ed.curCol, m.ed.Text())
+	}
+}
+
 // TestCopyCopiesVerifies that Ctrl+C copies and never quits.
 func TestCopyCopies(t *testing.T) {
 	m := New(Args{Width: 100, Height: 24}).(model)

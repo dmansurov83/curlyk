@@ -55,6 +55,18 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 
 	switch {
 	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
+		// Right-clicking a request line opens its action popup.
+		if msg.X < half {
+			row, _, onIcon := mouseToEditorCell(&m, msg.X, msg.Y)
+			if row >= 0 && (onIcon || isRequestLine(m.ed.Lines(), row)) {
+				m.active = paneEdit
+				m.ed.curRow, m.ed.curCol = row, 0
+				m.ed.EnsureVisible()
+				m.selActive = false
+				m.beginActionMenu()
+				return m, nil
+			}
+		}
 		// Right-click on a selection copies it; without a selection in the
 		// editor it pastes (like Ctrl+V) at the clicked position.
 		if msg.X >= half {
@@ -79,6 +91,16 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		x, y := msg.X, msg.Y
 		m.mouseDragged = false
+		// If the action popup is open, a click on one of its item rows runs it;
+		// any click elsewhere in the editor pane dismisses the popup.
+		if m.actionMenu != nil {
+			if i := m.menuItemAt(y); i >= 0 && x < lay.half {
+				m.active = paneEdit
+				cmd := m.activateMenuItem(i)
+				return m, cmd
+			}
+			m.actionMenu = nil
+		}
 		// files panel click (incl. its borders)
 		if x < lay.filesEnd {
 			m.active = paneFiles
@@ -141,10 +163,13 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 				m.ed.EnsureVisible()
 
 				if onIcon && isRequestLine(m.ed.Lines(), row) {
-					if cmd := m.runRequest(); cmd != nil {
-						m.selActive = false
-						return m, cmd
-					}
+					// Left-click on the ▶ run icon opens the request action popup
+					// (Выполнить / Copy as cURL) instead of running directly.
+					m.ed.curRow, m.ed.curCol = row, 0
+					m.ed.EnsureVisible()
+					m.beginActionMenu()
+					m.selActive = false
+					return m, nil
 				}
 				if isDouble {
 					// select the word under the cursor; keep this selection

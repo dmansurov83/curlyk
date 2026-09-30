@@ -32,12 +32,6 @@ func (p *filesPanel) filtered() []string {
 	return out
 }
 
-// filePicker lists `.http` files in the working directory for quick open.
-type filePicker struct {
-	files []string
-	sel   int
-}
-
 // httpFilesInDir lists .http filenames in path (sorted).
 func httpFilesInDir(path string) []string {
 	entries, err := os.ReadDir(path)
@@ -55,30 +49,6 @@ func httpFilesInDir(path string) []string {
 	}
 	slices.Sort(out)
 	return out
-}
-
-// startFilePicker scans the working directory for *.http files and opens a
-// picker overlay.
-func (m *model) startFilePicker() {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		m.status = "Не удалось прочитать папку: " + err.Error()
-		return
-	}
-	var files []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(strings.ToLower(e.Name()), ".http") {
-			files = append(files, e.Name())
-		}
-	}
-	if len(files) == 0 {
-		m.status = "В папке нет .http файлов"
-		return
-	}
-	m.filePicker = &filePicker{files: files, sel: 0}
 }
 
 // panelKey handles keys when the left files panel has focus.
@@ -196,27 +166,6 @@ func (m *model) refreshFilesPanel() {
 	if p.sel >= len(p.filtered()) {
 		p.sel = 0
 	}
-}
-
-// openPickedFile loads the currently selected file from the picker.
-func (m *model) openPickedFile() {
-	if m.filePicker == nil || m.filePicker.sel < 0 ||
-		m.filePicker.sel >= len(m.filePicker.files) {
-		m.filePicker = nil
-		return
-	}
-	name := m.filePicker.files[m.filePicker.sel]
-	m.filePicker = nil
-	data, err := os.ReadFile(name)
-	if err != nil {
-		m.status = "Не удалось открыть " + name + ": " + err.Error()
-		return
-	}
-	m.ed.SetText(string(data))
-	m.filePath = name
-	m.active = paneEdit
-	m.status = "Открыт " + name
-	rememberLastOpened(name)
 }
 
 // newBuffer clears the editor into a fresh unnamed buffer (Ctrl+N).

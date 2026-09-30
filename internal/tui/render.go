@@ -37,10 +37,6 @@ func (m model) View() string {
 	if m.width == 0 {
 		return "Загрузка редактора...\n"
 	}
-	// Quick file open overlay.
-	if m.filePicker != nil {
-		return m.renderPicker()
-	}
 	// left file panel width
 	lay := m.layout()
 	fw := lay.files
@@ -101,11 +97,10 @@ func (m model) View() string {
 	return header + "\n" + paneRow + "\n" + bar
 }
 
-// renderHeader draws the top bar with the current file name and a quick-open
-// hint.
+// renderHeader draws the top bar with the current file name.
 func (m *model) renderHeader(width int) string {
 	name := m.currentFileName()
-	txt := "Файл: " + name + "   [Ctrl+O — открыть .http из папки]"
+	txt := "Файл: " + name
 	st := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).
 		Foreground(lipgloss.Color("252")).
@@ -121,20 +116,6 @@ func (m *model) currentFileName() string {
 		return "новый файл"
 	}
 	return filepath.Base(m.filePath)
-}
-
-// renderPicker draws the quick file-open list (Ctrl+O).
-func (m *model) renderPicker() string {
-	var sb strings.Builder
-	sb.WriteString("Открыть .http файл (стрелки — выбор, Enter — открыть, Esc — отмена)\n\n")
-	for i, f := range m.filePicker.files {
-		if i == m.filePicker.sel {
-			sb.WriteString("► " + f + "\n")
-		} else {
-			sb.WriteString("  " + f + "\n")
-		}
-	}
-	return sb.String()
 }
 
 // renderFilesPanel draws the left sidebar: a search box on top, then the file

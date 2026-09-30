@@ -26,6 +26,133 @@ type editor struct {
 	wrapWidth int
 	// hScroll is the horizontal scroll offset (in cells) for long lines.
 	hScroll int
+	// undo/redo stacks of editor snapshots.
+	undo []editorSnap
+	redo []editorSnap
+	// undoDepth batches multiple primitive edits into a single undo step.
+	undoDepth int
+	// undoBase is the snapshot recorded when the current batch started.
+	undoBase *editorSnap
+}
+
+// editorSnap is a full copy of the editor's undoable state (buffer + cursor).
+type editorSnap struct {
+	lines  []string
+	curRow int
+	curCol int
+	onIcon bool
+}
+
+// snap returns a copy of the current mutable state.
+func (e *editor) snap() editorSnap {
+	cp := make([]string, len(e.lines))
+	copy(cp, e.lines)
+	return editorSnap{lines: cp, curRow: e.curRow, curCol: e.curCol, onIcon: e.onIcon}
+}
+
+// restore overwrites the editor state from a snapshot.
+func (e *editor) restore(s editorSnap) {
+	e.lines = s.lines
+	e.curRow = s.curRow
+	e.curCol = s.curCol
+	e.onIcon = s.onIcon
+}
+
+// pushUndo records the current state before an edit, so Undo can return here.
+// It clears the redo stack and skips duplicate consecutive snapshots. Edits
+// inside a batch (undoDepth > 0) collapse onto the snapshot captured at batch
+// start, so a compound edit (e.g. selection-replace or multi-line paste) undoes
+// as a single step.
+func (e *editor) pushUndo() {
+	if e.undoDepth > 0 {
+		// The very first mutation inside the batch records the batch-start
+		// snapshot; later mutations in the same batch are absorbed.
+		if e.undoBase != nil {
+			e.recordSnapshot(*e.undoBase)
+			e.undoBase = nil
+		}
+		return
+	}
+	if len(e.undo) > 0 {
+		last := e.undo[len(e.undo)-1]
+		if sameSnap(last, e.snap()) {
+			return
+		}
+	}
+	e.recordSnapshot(e.snap())
+}
+
+// recordSnapshot appends a snapshot to the undo stack, capping its size and
+// clearing redo.
+func (e *editor) recordSnapshot(s editorSnap) {
+	e.undo = append(e.undo, s)
+	const maxUndo = 200
+	if len(e.undo) > maxUndo {
+		e.undo = e.undo[len(e.undo)-maxUndo:]
+	}
+	e.redo = e.redo[:0]
+}
+
+// BeginUndo starts a batch: subsequent primitive edits coalesce into one undo
+// step. It captures the current state but does not push it immediately.
+func (e *editor) BeginUndo() {
+	if e.undoDepth == 0 {
+		e.undoBase = new(editorSnap)
+		*e.undoBase = e.snap()
+	}
+	e.undoDepth++
+}
+
+// EndUndo closes an open undo batch. A batch that performed no edits leaves the
+// history untouched.
+func (e *editor) EndUndo() {
+	if e.undoDepth > 0 {
+		e.undoDepth--
+	}
+	if e.undoDepth == 0 {
+		e.undoBase = nil
+	}
+}
+
+// Undo reverts the most recent edit (one snapshot). Compound edits made through
+// BeginUndo/EndUndo (paste, format, selection-replace, import) already collapse
+// into a single step. Returns true when an action was undone.
+func (e *editor) Undo() bool {
+	if len(e.undo) == 0 {
+		return false
+	}
+	// push current state onto redo, then restore the last snapshot.
+	e.redo = append(e.redo, e.snap())
+	s := e.undo[len(e.undo)-1]
+	e.undo = e.undo[:len(e.undo)-1]
+	e.restore(s)
+	e.clampCol()
+	return true
+}
+
+// Redo reapplies the most recently undone edit. Returns true when reapplied.
+func (e *editor) Redo() bool {
+	if len(e.redo) == 0 {
+		return false
+	}
+	e.undo = append(e.undo, e.snap())
+	s := e.redo[len(e.redo)-1]
+	e.redo = e.redo[:len(e.redo)-1]
+	e.restore(s)
+	e.clampCol()
+	return true
+}
+
+func sameSnap(a, b editorSnap) bool {
+	if a.curRow != b.curRow || a.curCol != b.curCol || a.onIcon != b.onIcon || len(a.lines) != len(b.lines) {
+		return false
+	}
+	for i := range a.lines {
+		if a.lines[i] != b.lines[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func newEditor(src string, width, height int) *editor {
@@ -36,8 +163,10 @@ func newEditor(src string, width, height int) *editor {
 	return &editor{lines: lines, width: width, height: height}
 }
 
-// SetText replaces the whole content and resets the cursor.
+// SetText replaces the whole content and resets the cursor. It records an undo
+// snapshot of the previous buffer so Ctrl+Z can restore it.
 func (e *editor) SetText(src string) {
+	e.pushUndo()
 	if src == "" {
 		src = ""
 	}
@@ -222,6 +351,10 @@ func (e *editor) DeleteRange(anchorRow, anchorCol, curRow, curCol int) string {
 	if er < sr || (er == sr && ec < sc) {
 		sr, sc, er, ec = er, ec, sr, sc
 	}
+	if sel == "" {
+		return ""
+	}
+	e.pushUndo()
 	for r := er; r >= sr; r-- {
 		if r < 0 || r >= len(e.lines) {
 			continue
@@ -344,6 +477,7 @@ func (e *editor) InsertString(s string) {
 	if s == "" {
 		return
 	}
+	e.pushUndo()
 	line := e.lines[e.curRow]
 	// convert to runes
 	runes := []rune(line)
@@ -364,6 +498,7 @@ func (e *editor) InsertString(s string) {
 
 // Enter splits the line at the cursor.
 func (e *editor) Enter() {
+	e.pushUndo()
 	line := e.lines[e.curRow]
 	runes := []rune(line)
 	if e.curCol > len(runes) {
@@ -382,6 +517,10 @@ func (e *editor) Enter() {
 
 // Backspace deletes the rune before the cursor.
 func (e *editor) Backspace() {
+	if e.curCol <= 0 && e.curRow <= 0 {
+		return // nothing to delete
+	}
+	e.pushUndo()
 	if e.curCol > 0 {
 		line := e.lines[e.curRow]
 		runes := []rune(line)
@@ -400,6 +539,11 @@ func (e *editor) Backspace() {
 
 // Delete removes the rune at the cursor.
 func (e *editor) Delete() {
+	// nothing to delete at the very end of the buffer
+	if e.curCol >= e.lineLen(e.curRow) && e.curRow >= len(e.lines)-1 {
+		return
+	}
+	e.pushUndo()
 	line := e.lines[e.curRow]
 	runes := []rune(line)
 	if e.curCol < len(runes) {

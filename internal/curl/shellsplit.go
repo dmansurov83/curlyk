@@ -60,6 +60,16 @@ func ShellSplit(s string) ([]string, error) {
 		case c == '"':
 			inDouble = true
 		case c == '\\':
+			// A backslash immediately before a newline is a line continuation:
+			// it joins physical lines into one command, so the backslash and the
+			// following newline are dropped (and pending token is kept).
+			if i+1 < len(runes) && (runes[i+1] == '\n' || runes[i+1] == '\r') {
+				i++
+				if i+1 < len(runes) && runes[i+1] == '\n' {
+					i++
+				}
+				continue
+			}
 			if i+1 < len(runes) {
 				cur.WriteRune(runes[i+1])
 				i++

@@ -112,6 +112,7 @@ func (m *model) cutSelection() {
 	if sel == "" {
 		return
 	}
+	m.markDirty()
 	if err := clipboard.WriteAll(sel); err != nil {
 		m.status = "Не удалось вырезать: " + err.Error()
 		return
@@ -133,6 +134,9 @@ func (m *model) pasteClipboard() {
 // pasteOrConvert inserts text at the cursor; if it looks like a cURL command it
 // is auto-converted into an .http request (issue #5).
 func (m *model) pasteOrConvert(text string) {
+	m.ed.BeginUndo()
+	defer m.ed.EndUndo()
+	m.markDirty()
 	// Pasting replaces any active selection.
 	if m.selActive && m.hasSelection() {
 		m.ed.DeleteRange(m.selAnchorRow, m.selAnchorCol, m.ed.curRow, m.ed.curCol)
@@ -154,7 +158,23 @@ func (m *model) pasteOrConvert(text string) {
 			m.status = "Не удалось конвертировать cURL: " + err.Error()
 			return
 		}
+		// Remember where the block will start so we can put the cursor back on
+		// the request line (insertText leaves the cursor at the block's end).
+		startRow, startCol := m.ed.curRow, m.ed.curCol
 		m.insertText(block)
+		// Move the cursor to the request line (the first line of the block).
+		if m.ed.curRow >= startRow {
+			m.ed.curRow = startRow
+			m.ed.curCol = 0
+			if startCol == 0 {
+				m.ed.curCol = 0
+			} else {
+				// block was appended mid-line; put cursor at block start
+				m.ed.curCol = startCol
+			}
+		}
+		m.ed.clampCol()
+		m.ed.EnsureVisible()
 		m.status = "cURL конвертирован в запрос"
 		return
 	}

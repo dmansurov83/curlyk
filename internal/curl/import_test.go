@@ -20,6 +20,30 @@ func TestShellSplit(t *testing.T) {
 	}
 }
 
+// TestShellSplitLineContinuation verifies `\` at end of line joins physical
+// lines into a single command (as copied from DevTools multi-line curl).
+func TestShellSplitLineContinuation(t *testing.T) {
+	cmd := "curl -X 'DELETE' \\\n  'https://api.test/accounts/x' \\\n  -H 'accept: */*' \\\n  -H 'Authorization: Bearer TOKEN'"
+	got, err := ShellSplit(cmd)
+	if err != nil {
+		t.Fatalf("ShellSplit error: %v", err)
+	}
+	want := []string{
+		"curl", "-X", "DELETE",
+		"https://api.test/accounts/x",
+		"-H", "accept: */*",
+		"-H", "Authorization: Bearer TOKEN",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d args want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("arg[%d]=%q want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestImportBasic(t *testing.T) {
 	argv, _ := ShellSplit(`-X POST -H "Content-Type: application/json" -d '{"title":"x"}' https://api.test/items`)
 	p, err := ImportCommand(argv)

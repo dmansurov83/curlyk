@@ -69,3 +69,98 @@ func TestMenuNav(t *testing.T) {
 		t.Errorf("after ups sel=%d want 0 (clamped)", m.actionMenu.sel)
 	}
 }
+
+// TestMouseMenuClickRunsItem verifies clicking a menu item with the mouse runs
+// its action and closes the popup.
+func TestMouseMenuClickRunsItem(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("### a\nGET http://x/1\n")
+	m.ed.curRow, m.ed.curCol = 1, 0
+	m.beginActionMenu()
+	if m.actionMenu == nil {
+		t.Fatal("menu should be open")
+	}
+	// menu item 0 row: anchorRow=1, scroll=0 → menuRow() = headerHeight+2+(1)=4.
+	rowY := m.menuRow()
+	if m.menuItemAt(rowY) != 0 {
+		t.Fatalf("menuItemAt(y=%d) want 0", rowY)
+	}
+	// Click item 0 → closes menu and runs → returns a cmd (runRequest).
+	m2, cmd := m.Update(tea.MouseMsg{
+		Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
+		X: m.layout().editorL + 1, Y: rowY,
+	})
+	r := m2.(model)
+	if r.actionMenu != nil {
+		t.Error("menu must close after clicking an item")
+	}
+	if cmd == nil {
+		t.Error("running Выполнить via mouse must return a cmd")
+	}
+}
+
+// TestMouseRightClickRequestOpensMenu verifies right-clicking a request line
+// opens its action popup.
+func TestMouseRightClickRequestOpensMenu(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("### a\nGET http://x/1\n")
+	m.ed.curRow, m.ed.curCol = 1, 0
+	// right-click on the request line text (row 1 → y=headerHeight+2)
+	m2, _ := m.Update(tea.MouseMsg{
+		Button: tea.MouseButtonRight, Action: tea.MouseActionPress,
+		X: m.layout().editorL + 10, Y: headerHeight + 2,
+	})
+	if m2.(model).actionMenu == nil {
+		t.Fatal("right-click on a request line should open the action popup")
+	}
+}
+
+// TestFormatRequestJSON verifies formatting a JSON request body in place.
+func TestFormatRequestJSON(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("### a\nPOST http://x\nContent-Type: application/json\n\n{\"b\":1,\"a\":\"x\"}\n")
+	m.ed.curRow = 1
+	m.formatRequestJSON()
+	got := m.ed.Text()
+	wantFrag := "\n{\n  \"b\": 1,\n  \"a\": \"x\"\n}"
+	if !strings.Contains(got, wantFrag) || !strings.Contains(got, "Content-Type: application/json") {
+		t.Errorf("formatted body missing:\n%s", got)
+	}
+}
+
+// TestFormatRequestJSONInvalid verifies non-JSON bodies are rejected.
+func TestFormatRequestJSONInvalid(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("### a\nPOST http://x\n\nnot json\n")
+	m.ed.curRow = 1
+	m.formatRequestJSON()
+	if m.ed.Text() != "### a\nPOST http://x\n\nnot json\n" {
+		t.Errorf("non-JSON body must be left untouched, got:\n%s", m.ed.Text())
+	}
+	if !strings.Contains(m.status, "JSON") {
+		t.Errorf("status should mention invalid JSON, got %q", m.status)
+	}
+}
+
+// TestFormatRequestJSONUndo verifies Ctrl+Z reverts an applied JSON format.
+func TestFormatRequestJSONUndo(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	orig := "### a\nPOST http://x\nContent-Type: application/json\n\n{\"b\":1,\"a\":\"x\"}\n"
+	m.ed.SetText(orig)
+	m.ed.undo = m.ed.undo[:0] // clear SetText's snapshot
+	m.ed.curRow = 1
+	m.formatRequestJSON()
+	if m.ed.Text() == orig {
+		t.Fatal("format should change the body")
+	}
+	res, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlZ})
+	r := res.(model)
+	if r.ed.Text() != orig {
+		t.Errorf("Ctrl+Z should restore original, got:\n%s", r.ed.Text())
+	}
+}
