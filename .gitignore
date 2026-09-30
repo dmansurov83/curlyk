@@ -1,9 +1,6 @@
 # ------- Build artifacts -------
 /bin/
 *.exe
-*.syso
-/winres/
-pigeon.jpg
 
 # ------- Runtime / session files -------
 appsettings.yml

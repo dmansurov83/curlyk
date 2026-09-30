@@ -1,0 +1,47 @@
+{
+  "RT_GROUP_ICON": {
+"APP": {
+          "0000": [
+            "app.png"
+          ]
+        }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "FixedFileInfo": {
+          "FileVersion": {
+            "Major": 1,
+            "Minor": 0,
+            "Patch": 0,
+            "Build": 0
+          },
+          "ProductVersion": {
+            "Major": 1,
+            "Minor": 0,
+            "Patch": 0,
+            "Build": 0
+          }
+        },
+        "StringFileInfo": {
+          "040904B0": {
+            "Comments": "HTTP Tool",
+            "CompanyName": "",
+            "FileDescription": "HTTP Tool",
+            "FileVersion": "1.0.0",
+            "InternalName": "httptool",
+            "LegalCopyright": "",
+            "OriginalFilename": "httptool.exe",
+            "ProductName": "HTTP Tool",
+            "ProductVersion": "1.0.0"
+          }
+        },
+        "VarFileInfo": {
+          "Translation": {
+            "0000": "04B0"
+          }
+        }
+      }
+    }
+  }
+}
