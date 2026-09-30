@@ -1,0 +1,16 @@
+# ------- Build artifacts -------
+/bin/
+*.exe
+
+# ------- Runtime / session files -------
+appsettings.yml
+last.session.http
+debug.txt
+response.out
+
+# ------- Local tooling -------
+.gigatool/
+
+# ------- OS / editor -------
+.DS_Store
+Thumbs.db

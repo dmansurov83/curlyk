@@ -1,0 +1,62 @@
+package settings
+
+import (
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Settings holds the persistent app configuration (appsettings.yml).
+type Settings struct {
+	// LastOpenedFile is the path of the last explicitly opened .http file.
+	LastOpenedFile string `yaml:"last_opened_file"`
+	// SessionFile is where unsaved editor content is persisted on exit.
+	SessionFile string `yaml:"session_file"`
+	// DefaultFile is the sample content shown when nothing else is available.
+	DefaultFile string `yaml:"default_file,omitempty"`
+	// CursorRow / CursorCol restore the editor cursor position on open.
+	CursorRow    int `yaml:"cursor_row"`
+	CursorCol    int `yaml:"cursor_col"`
+	// EditorScroll restores the vertical scroll offset.
+	EditorScroll int `yaml:"editor_scroll"`
+	// ActivePane restores the active pane (0 = editor, 1 = response).
+	ActivePane int `yaml:"active_pane"`
+}
+
+// Default returns settings with sensible defaults.
+func Default() Settings {
+	return Settings{
+		SessionFile: "last.session.http",
+	}
+}
+
+// appSettingsPath is the path to appsettings.yml (overridable for tests).
+var appSettingsPath = func() string {
+	return "appsettings.yml"
+}
+
+// Load reads appsettings.yml from the working directory. Returns defaults if
+// the file is missing or malformed.
+func Load() Settings {
+	s := Default()
+	data, err := os.ReadFile(appSettingsPath())
+	if err != nil {
+		return s
+	}
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return Default()
+	}
+	return s
+}
+
+// Save writes the settings to appsettings.yml.
+func (s Settings) Save() error {
+	data, err := yaml.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(appSettingsPath(), data, 0o644)
+}
+
+// SetAppSettingsPath overrides where appsettings.yml lives (tests).
+func SetAppSettingsPath(p string) { appSettingsPath = func() string { return p } }

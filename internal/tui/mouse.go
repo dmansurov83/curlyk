@@ -1,0 +1,435 @@
+package tui
+
+import (
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// paneLayout describes the horizontal split of the screen into the three
+// panes in ABSOLUTE screen columns (borders included): the files sidebar, the
+// editor and the response pane.
+type paneLayout struct {
+	files     int // files sidebar interior width (as rendered incl. borders)
+	filesEnd  int // absolute col just past the files pane (its right border + 1)
+	mid       int // editor pane interior width
+	editorL   int // absolute col of the editor pane's left border
+	editorR   int // absolute col of the editor pane's right border (inclusive)
+	half      int // absolute col of the response pane's left border = editorR + 1
+	respR     int // response pane right border (inclusive) = width-1
+}
+
+// layout computes the current pane geometry from the model dimensions.
+func (m *model) layout() paneLayout {
+	fw := m.filesWidth()
+	mid := (m.width - fw) / 2
+	filesEnd := fw + 2 // files pane: interior fw + left/right borders
+	editorL := filesEnd
+	editorR := editorL + mid - 1
+	half := editorR + 1 // response pane left border
+	respR := m.width - 1
+	return paneLayout{
+		files:    fw,
+		filesEnd: filesEnd,
+		mid:      mid,
+		editorL:  editorL,
+		editorR:  editorR,
+		half:     half,
+		respR:    respR,
+	}
+}
+
+// handleMouse processes mouse clicks and wheel scroll.
+// It returns the updated model and an optional run command.
+func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
+	lay := m.layout()
+	half := lay.half
+	if half < 1 {
+		half = m.width
+	}
+
+	// Import input bar — ignore clicks while the import prompt is active.
+	if m.importing != nil {
+		return m, nil
+	}
+
+	switch {
+	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
+		// Right-click on a selection copies it; without a selection in the
+		// editor it pastes (like Ctrl+V) at the clicked position.
+		if msg.X >= half {
+			m.active = paneResp
+			if m.respSelActive && m.respSelectedText() != "" {
+				m.copyRespSelection()
+			}
+		} else {
+			m.active = paneEdit
+			if m.selActive && m.hasSelection() {
+				m.copySelection()
+				return m, nil
+			}
+			// place the cursor where clicked, then paste from clipboard
+			row, col, onIcon := mouseToEditorCell(&m, msg.X, msg.Y)
+			if row >= 0 && !onIcon {
+				m.ed.curRow, m.ed.curCol = row, col
+				m.ed.EnsureVisible()
+			}
+			m.pasteClipboard()
+		}
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+		x, y := msg.X, msg.Y
+		m.mouseDragged = false
+		// files panel click (incl. its borders)
+		if x < lay.filesEnd {
+			m.active = paneFiles
+			if row, ok := mouseToFilesRow(&m, y); ok {
+				// double-click detection reuses the editor's last-click state.
+				isDouble := !m.lastClickTime.IsZero() &&
+					time.Since(m.lastClickTime) < 300*time.Millisecond &&
+					row == m.lastClickFilesRow && y == m.lastClickFilesY
+				if !isDouble && time.Since(m.lastClickTime) > 300*time.Millisecond {
+					m.lastWasDouble = false
+				}
+				m.lastClickTime = time.Now()
+				m.lastClickFilesRow, m.lastClickFilesY = row, y
+				m.filesPanel.sel = row
+				if isDouble {
+					m.openPanelFile()
+				}
+			}
+			return m, nil
+		}
+		// scrollbar clicks
+		if x == half-2 {
+			// editor scrollbar column
+			m.active = paneEdit
+			m.clickEditorScrollbar(y)
+			return m, nil
+		}
+		if x == m.width-2 {
+			// response scrollbar column
+			m.active = paneResp
+			m.clickRespScrollbar(y)
+			return m, nil
+		}
+		// copy-button row in the response pane (visual row headerHeight+1)
+		if x >= half && y == headerHeight+1 && m.response != "" {
+			m.active = paneResp
+			m.copyAllResponse()
+			return m, nil
+		}
+		if x < half {
+			m.active = paneEdit
+			row, col, onIcon := mouseToEditorCell(&m, x, y)
+			if row >= 0 {
+				// double-click detection (within 300ms and same cell)
+				isDouble := !m.lastClickTime.IsZero() &&
+					time.Since(m.lastClickTime) < 300*time.Millisecond &&
+					row == m.lastClickRow && col == m.lastClickCol
+				if !isDouble && time.Since(m.lastClickTime) > 300*time.Millisecond {
+					// a fresh single-click sequence
+					m.lastWasDouble = false
+				}
+				m.lastClickRow, m.lastClickCol, m.lastClickTime = row, col, time.Now()
+				if isDouble {
+					m.lastWasDouble = true
+				}
+
+				m.selAnchorRow, m.selAnchorCol = row, col
+				m.selActive = true
+				m.ed.curRow, m.ed.curCol = row, col
+				m.ed.EnsureVisible()
+
+				if onIcon && isRequestLine(m.ed.Lines(), row) {
+					if cmd := m.runRequest(); cmd != nil {
+						m.selActive = false
+						return m, cmd
+					}
+				}
+				if isDouble {
+					// select the word under the cursor; keep this selection
+					ws, we := m.ed.wordRange(row, col)
+					m.selAnchorRow, m.selAnchorCol = row, ws
+					m.ed.curRow, m.ed.curCol = row, we
+				}
+			}
+		} else {
+			m.active = paneResp
+			m.selActive = false
+			// click in response pane: start a text selection there
+			if rrow, rcol, ok := mouseToRespCell(&m, x, y); ok {
+				m.respSelActive = true
+				m.respSelAnchorRow, m.respSelAnchorCol = rrow, rcol
+				m.respSelCurRow, m.respSelCurCol = rrow, rcol
+			}
+		}
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionMotion:
+		m.mouseDragged = true
+		// drag while holding left button
+		if m.active == paneResp {
+			if rrow, rcol, ok := mouseToRespCell(&m, msg.X, msg.Y); ok {
+				m.respSelCurRow, m.respSelCurCol = rrow, rcol
+			}
+		} else {
+			row, col, _ := mouseToEditorCell(&m, msg.X, msg.Y)
+			if row >= 0 {
+				m.ed.curRow, m.ed.curCol = row, col
+				m.ed.EnsureVisible()
+			}
+		}
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionRelease:
+		// finish selection. Keep it if it was a drag or a double-click word
+		// selection; only collapse the standalone single-click.
+		if m.active == paneResp {
+			if rrow, rcol, ok := mouseToRespCell(&m, msg.X, msg.Y); ok {
+				m.respSelCurRow, m.respSelCurCol = rrow, rcol
+			}
+			m.respSelActive = true // keep selection on release
+		} else {
+			// In the editor, only a drag-release moves the selection cursor end;
+			// a plain click / double-click already positioned everything in the
+			// press handler, so leave the cursor where the press put it.
+			if m.mouseDragged {
+				row, col, _ := mouseToEditorCell(&m, msg.X, msg.Y)
+				if row >= 0 {
+					m.ed.curRow, m.ed.curCol = row, col
+					m.ed.EnsureVisible()
+				}
+			}
+			if !m.mouseDragged {
+				// A standalone single click (press→release with no motion and no
+				// prior double-click) collapses the selection so the cursor just
+				// moves. Double-click word selections and drags are kept.
+				if !m.lastWasDouble {
+					m.selActive = false
+				}
+			}
+			// if mouseDragged, keep the drag selection active
+		}
+	case msg.Button == tea.MouseButtonWheelUp && msg.Action == tea.MouseActionPress:
+		if m.paneAtX(msg.X) == paneResp {
+			m.scrollBy(-3)
+		} else {
+			m.ed.scroll--
+			if m.ed.scroll < 0 {
+				m.ed.scroll = 0
+			}
+			m.clampEditorScroll()
+		}
+	case msg.Button == tea.MouseButtonWheelDown && msg.Action == tea.MouseActionPress:
+		if m.paneAtX(msg.X) == paneResp {
+			m.scrollBy(3)
+		} else {
+			m.ed.scroll++
+			m.clampEditorScroll()
+		}
+	case msg.Button == tea.MouseButtonWheelLeft && msg.Action == tea.MouseActionPress:
+		// horizontal scroll left (tilt wheel / shift+wheel), over the hovered pane
+		if m.paneAtX(msg.X) == paneResp {
+			m.respHScroll -= 4
+			if m.respHScroll < 0 {
+				m.respHScroll = 0
+			}
+		} else {
+			m.ed.hScroll -= 4
+			if m.ed.hScroll < 0 {
+				m.ed.hScroll = 0
+			}
+		}
+	case msg.Button == tea.MouseButtonWheelRight && msg.Action == tea.MouseActionPress:
+		if m.paneAtX(msg.X) == paneResp {
+			m.respHScroll += 4
+		} else {
+			m.ed.hScroll += 4
+		}
+	}
+	return m, nil
+}
+
+// filesWidth returns the left sidebar width.
+func (m *model) filesWidth() int {
+	fw := 20
+	if fw >= m.width {
+		fw = m.width / 4
+	}
+	return fw
+}
+
+// paneAtX returns which pane the horizontal cursor position x is over.
+func (m *model) paneAtX(x int) pane {
+	if x <= 0 {
+		return m.active
+	}
+	lay := m.layout()
+	if x < lay.filesEnd {
+		return paneFiles
+	}
+	if x <= lay.editorR {
+		return paneEdit
+	}
+	return paneResp
+}
+
+// mouseToEditorCell converts an absolute screen (x,y) to a 0-based (row, runeCol)
+// within the editor buffer, or -1 if the click is outside the text area.
+// y is the visible line (before scroll); the caller adds e.scroll.
+// Returns also whether the click landed on the run-icon column.
+func mouseToEditorCell(m *model, x, y int) (row int, runeCol int, onIcon bool) {
+	lay := m.layout()
+	left := lay.editorL
+	right := lay.editorR
+
+	// Outside the editor pane horizontally?
+	if x < left || x > right {
+		return -1, -1, false
+	}
+	// Vertical: editor pane is the full height (bordered). Top border y=headerHeight,
+	// content y=headerHeight+1.., bottom border y=m.height-1.
+	if y <= headerHeight || y >= m.height-1 {
+		return -1, -1, false
+	}
+
+	row = y - headerHeight - paneContentX + m.ed.scroll // y-headerHeight-1 + scroll
+	if row < 0 || row >= len(m.ed.Lines()) {
+		if row < 0 {
+			row = 0
+		} else {
+			row = len(m.ed.Lines()) - 1
+		}
+	}
+
+	// pane-relative content column (0 = left border)
+	pcol := x - left
+	px := pcol - paneContentX // 0-based column inside the contrast area: icon at 0, num at 1..4, text at 5..
+	if px < 0 {
+		px = 0
+	}
+
+	// icon column?
+	if px == 0 {
+		return row, 0, true
+	}
+	// line-number area → clamp to col 0 (text start)
+	if px < textColAbs-paneContentX {
+		return row, 0, false
+	}
+
+	// text area: px - (textColAbs - paneContentX) is the display-width offset
+	// within the visible window. The line may be horizontally scrolled, so add
+	// hScroll to map back to the full-line display offset.
+	textOffset := px - (textColAbs - paneContentX) + m.ed.hScroll
+	line := ""
+	if row < len(m.ed.Lines()) {
+		line = m.ed.Lines()[row]
+	}
+	runeCol = displayToRune(line, textOffset)
+	return row, runeCol, false
+}
+
+// mouseToRespCell converts an absolute screen (x,y) in the right (response)
+// pane to a (row, runeCol) into the response BODY lines (0-based) and whether
+// it hit inside the pane. Rows are offset by respScroll. The copy button
+// (y=1) and the fixed header rows are skipped.
+func mouseToRespCell(m *model, x, y int) (row int, col int, ok bool) {
+	half := m.layout().half
+	if x < half || y <= headerHeight || y >= m.height-1 {
+		return 0, 0, false
+	}
+	pcol := x - half
+	content := pcol - paneContentX
+	if content < 0 {
+		content = 0
+	}
+	// body starts at pane row: top border + copy button + header lines.
+	bodyStart := headerHeight + 1 + 1 + m.respHeaderLines
+	visRow := y - bodyStart
+	if visRow < 0 {
+		visRow = 0
+	}
+	row = visRow + m.respScroll
+	body := respBodyLines(m)
+	if len(body) == 0 {
+		return 0, col, true
+	}
+	if row >= len(body) {
+		row = len(body) - 1
+	}
+	col = displayToRune(body[row], content+m.respHScroll)
+	return row, col, true
+}
+
+// mouseToFilesRow maps an absolute screen y to a selectable row index in the
+// files panel (0-based, including the "+ Новый файл" pseudo-entry when the
+// filter is empty), mirroring renderFilesPanel. Returns ok=false when the click
+// is on the search box, the panel border, or beyond the listed rows.
+func mouseToFilesRow(m *model, y int) (row int, ok bool) {
+	// Top border at y=headerHeight; search row + blank row follow, then rows.
+	firstRow := headerHeight + 3
+	idx := y - firstRow
+	if idx < 0 {
+		return 0, false
+	}
+	total := 0
+	p := m.filesPanel
+	if p != nil {
+		if p.filter == "" {
+			total = 1 // "+ Новый файл"
+		}
+		total += len(p.filtered())
+	}
+	if idx >= total {
+		return 0, false
+	}
+	return idx, true
+}
+
+// clickEditorScrollbar sets the editor scroll from a click on its scrollbar.
+func (m *model) clickEditorScrollbar(y int) {
+	total := len(m.ed.Lines())
+	vis := m.ed.height
+	mx := total - vis
+	if mx < 0 {
+		mx = 0
+	}
+	if vis <= 0 || total <= vis {
+		return
+	}
+	// visible range y in [headerHeight+1, m.height-2] (content rows inside pane)
+	rel := y - headerHeight - 1
+	if rel < 0 {
+		rel = 0
+	}
+	if rel >= vis {
+		rel = vis - 1
+	}
+	frac := float64(rel) / float64(vis)
+	m.ed.scroll = int(frac * float64(mx))
+	m.clampEditorScroll()
+}
+
+// clickRespScrollbar sets the response scroll from a click on its scrollbar.
+func (m *model) clickRespScrollbar(y int) {
+	lines := respBodyLines(m)
+	vis := m.height - 6 - m.respHeaderLines // scrollable body rows
+	total := len(lines)
+	mx := total - vis
+	if mx < 0 {
+		mx = 0
+	}
+	if vis <= 0 || total <= vis {
+		return
+	}
+	bodyStart := headerHeight + 1 + 1 + m.respHeaderLines
+	rel := y - bodyStart
+	if rel < 0 {
+		rel = 0
+	}
+	if rel >= vis {
+		rel = vis - 1
+	}
+	frac := float64(rel) / float64(vis)
+	m.respScroll = int(frac * float64(mx))
+	if m.respScroll < 0 {
+		m.respScroll = 0
+	}
+}
