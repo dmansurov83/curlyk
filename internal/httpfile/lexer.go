@@ -207,19 +207,47 @@ func tokenizeRequestLine(line, method, urlStr, httpVer string) []Token {
 	return toks
 }
 
-// splitHeaderLine splits "Name: value".
+// splitHeaderLine splits "Name: value". To be treated as a header the name
+// must be a valid HTTP header token (RFC 7230): non-empty and made solely of
+// token characters. This rejects JSON/URL bodies starting with '{', '[', '"',
+// digits, etc. from being misread as header names.
 func splitHeaderLine(line string) (string, string, bool) {
 	idx := strings.IndexRune(line, ':')
 	if idx <= 0 {
 		return "", "", false
 	}
 	name := line[:idx]
-	if strings.ContainsAny(name, " \t") {
+	if !isTokenName(name) {
 		return "", "", false
 	}
 	val := line[idx+1:]
 	val = strings.TrimLeft(val, " ")
 	return name, val, true
+}
+
+// isTokenName reports whether s is a valid RFC 7230 field-name token.
+func isTokenName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if !isTokenChar(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isTokenChar reports whether b is a valid HTTP token character (RFC 7230).
+func isTokenChar(b byte) bool {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' {
+		return true
+	}
+	switch b {
+	case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
+		return true
+	}
+	return false
 }
 
 func isMethodChar(c byte) bool {
