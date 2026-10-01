@@ -21,6 +21,16 @@ type Settings struct {
 	EditorScroll int `yaml:"editor_scroll"`
 	// ActivePane restores the active pane (0 = editor, 1 = response).
 	ActivePane int `yaml:"active_pane"`
+	// FileCursors remembers the cursor position per opened file, keyed by the
+	// file's path, so switching between files and across restarts restores it.
+	FileCursors map[string]CursorPos `yaml:"file_cursors,omitempty"`
+}
+
+// CursorPos is a remembered cursor position for a single file.
+type CursorPos struct {
+	Row    int `yaml:"row"`
+	Col    int `yaml:"col"`
+	Scroll int `yaml:"scroll"`
 }
 
 // Default returns settings with sensible defaults.

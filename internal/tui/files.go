@@ -117,6 +117,7 @@ func (m *model) openPanelFile() {
 	}
 	// When the filter is empty, row 0 is "+ Новый файл".
 	if p.filter == "" && p.sel == 0 {
+		m.rememberCursor(m.filePath)
 		m.newBuffer()
 		m.active = paneEdit
 		return
@@ -135,11 +136,15 @@ func (m *model) openPanelFile() {
 		m.status = "Не удалось открыть " + name + ": " + err.Error()
 		return
 	}
+	// remember where the cursor was in the file being left
+	m.rememberCursor(m.filePath)
 	m.ed.SetText(string(data))
 	m.filePath = name
 	m.active = paneEdit
 	m.status = "Открыт " + name
 	rememberLastOpened(name)
+	// restore the cursor position this file was left at
+	m.applyCursor(name)
 }
 
 // refreshFilesPanel rescans the working directory for .http files.

@@ -93,6 +93,15 @@ type model struct {
 	// the batch closes. Stored as []byte: the model is copied by value in
 	// bubbletea, and a strings.Builder must not be copied.
 	burstText []byte
+	// perFileCursor remembers the cursor row/col/scroll for each opened file,
+	// keyed by absolute file path, so switching between files restores the
+	// position each file was left at.
+	perFileCursor map[string]editorPos
+}
+
+// editorPos captures where the cursor was left in a file (canonical path key).
+type editorPos struct {
+	row, col, scroll int
 }
 
 // editBatchGap is how long a burst of characters may pause before its undo
@@ -275,7 +284,76 @@ func (m *model) saveSession() {
 	s.CursorCol = m.ed.curCol
 	s.EditorScroll = m.ed.scroll
 	s.ActivePane = int(m.active)
+	// also remember the current file's cursor in the per-file map
+	if m.filePath != "" {
+		if abs, err := filepath.Abs(m.filePath); err == nil {
+			if s.FileCursors == nil {
+				s.FileCursors = make(map[string]settings.CursorPos)
+			}
+			s.FileCursors[abs] = settings.CursorPos{Row: m.ed.curRow, Col: m.ed.curCol, Scroll: m.ed.scroll}
+		}
+	}
 	_ = s.Save()
+}
+
+// rememberCursor records the current editor position under the given file path
+// so it can be restored when the file is opened again. It also persists the
+// position to appsettings.yml so it survives a restart.
+func (m *model) rememberCursor(path string) {
+	if path == "" || m.ed == nil {
+		return
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	if m.perFileCursor == nil {
+		m.perFileCursor = make(map[string]editorPos)
+	}
+	p := editorPos{row: m.ed.curRow, col: m.ed.curCol, scroll: m.ed.scroll}
+	m.perFileCursor[abs] = p
+	// persist to settings so the position survives a restart
+	s := settings.Load()
+	if s.FileCursors == nil {
+		s.FileCursors = make(map[string]settings.CursorPos)
+	}
+	s.FileCursors[abs] = settings.CursorPos{Row: p.row, Col: p.col, Scroll: p.scroll}
+	_ = s.Save()
+}
+
+// applyCursor restores a previously remembered cursor position for the given
+// file onto the editor, clamping to the current buffer size. Returns true if a
+// position was applied.
+func (m *model) applyCursor(path string) {
+	if m.ed == nil || path == "" {
+		return
+	}
+	if m.perFileCursor == nil {
+		m.perFileCursor = make(map[string]editorPos)
+		// seed from settings so positions survive a restart
+		s := settings.Load()
+		for k, v := range s.FileCursors {
+			m.perFileCursor[k] = editorPos{row: v.Row, col: v.Col, scroll: v.Scroll}
+		}
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	p, ok := m.perFileCursor[abs]
+	if !ok {
+		return
+	}
+	if p.row >= 0 && p.row < len(m.ed.Lines()) {
+		m.ed.curRow = p.row
+	}
+	if p.col >= 0 {
+		m.ed.curCol = p.col
+	}
+	if p.scroll >= 0 {
+		m.ed.scroll = p.scroll
+	}
+	m.ed.clampCol()
 }
 
 // New builds the start model. If filePath is set, its content is loaded;
