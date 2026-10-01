@@ -12,17 +12,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/user/curlyk/internal/curl"
 	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/runner"
 	"github.com/user/curlyk/internal/settings"
 )
 
 type pane int
-
-type importMode struct {
-	input textinput.Model
-}
 
 const (
 	paneEdit pane = iota
@@ -49,7 +44,6 @@ type model struct {
 	state      runState
 	filePath   string
 	lastBody   []byte
-	importing  *importMode
 	// selection (mouse drag) anchor and active flag
 	selAnchorRow, selAnchorCol int
 	selActive                  bool
@@ -559,32 +553,4 @@ func (m model) setResponse(response, header string, body []byte) model {
 	return m
 }
 
-// performImport parses a pasted cURL command and inserts the result.
-func (m *model) performImport(raw string) {
-	block, err := curl.ImportLine(raw)
-	if err != nil {
-		m.status = "Ошибка импорта cURL: " + err.Error()
-		return
-	}
-	cur := m.ed.Text()
-	var sb strings.Builder
-	if cur != "" && !strings.HasSuffix(cur, "\n") {
-		sb.WriteString(cur)
-		sb.WriteString("\n")
-	}
-	sb.WriteString("\n")
-	sb.WriteString(block)
-	m.ed.SetText(sb.String())
-	m.status = "Импортирован запрос из cURL"
-	m.active = paneEdit
-	m.markDirty()
-}
 
-func newImportInput() textinput.Model {
-	ti := textinput.New()
-	ti.Placeholder = "curl -X POST https://api.example.com -H 'Content-Type: application/json' -d '{...}'"
-	ti.Focus()
-	ti.CharLimit = 0
-	ti.Width = 60
-	return ti
-}

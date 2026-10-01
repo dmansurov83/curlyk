@@ -48,11 +48,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		half = m.width
 	}
 
-	// Import input bar — ignore clicks while the import prompt is active.
-	if m.importing != nil {
-		return m, nil
-	}
-
+	// Start handling mouse gestures.
 	switch {
 	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
 		// Right-clicking a request line opens its action popup.

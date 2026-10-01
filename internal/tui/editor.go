@@ -555,6 +555,21 @@ func (e *editor) Delete() {
 	}
 }
 
+// DeleteLine removes the whole line under the cursor and moves the cursor to the
+// start of the line that takes its place. If it was the last line the cursor
+// moves to the end of the buffer. A no-op when the buffer has a single line.
+func (e *editor) DeleteLine() {
+	if len(e.lines) <= 1 {
+		return
+	}
+	e.pushUndo()
+	e.lines = append(e.lines[:e.curRow], e.lines[e.curRow+1:]...)
+	if e.curRow >= len(e.lines) {
+		e.curRow = len(e.lines) - 1
+	}
+	e.curCol = 0
+}
+
 // cursorLine returns the logical row = curRow - scroll offset.
 func (e *editor) cursorLine() int { return e.curRow - e.scroll }
 

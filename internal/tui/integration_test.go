@@ -42,10 +42,11 @@ func TestImportThenRun(t *testing.T) {
 	}
 }
 
-// TestPerformImport verifies the model-level import writes the block into the editor.
-func TestPerformImport(t *testing.T) {
+// TestPasteCurl verifies the model-level auto-conversion writes the block into the editor.
+func TestPasteCurl(t *testing.T) {
 	m := New(Args{Width: 100, Height: 24}).(model)
-	m.performImport(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"a":1}'`)
+	m.active = paneEdit
+	m.pasteOrConvert(`curl -X POST https://httpbin.org/post -H "Content-Type: application/json" -d '{"a":1}'`)
 	text := m.ed.Text()
 	if !strings.Contains(text, "POST https://httpbin.org/post") {
 		t.Errorf("import not inserted: %s", text)

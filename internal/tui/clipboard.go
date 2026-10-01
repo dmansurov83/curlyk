@@ -121,6 +121,19 @@ func (m *model) cutSelection() {
 	m.status = "Вырезано"
 }
 
+// deleteLine removes the line under the cursor. If a selection is active, it is
+// cleared first (the action targets the current line, not the selection).
+func (m *model) deleteLine() {
+	m.forceCloseEditBatch()
+	m.ed.BeginUndo()
+	defer m.ed.EndUndo()
+	m.selActive = false
+	m.selAnchorRow, m.selAnchorCol = m.ed.curRow, m.ed.curCol
+	m.ed.DeleteLine()
+	m.markDirty()
+	m.status = "Строка удалена"
+}
+
 // pasteClipboard inserts clipboard contents at the cursor.
 func (m *model) pasteClipboard() {
 	text, err := clipboard.ReadAll()

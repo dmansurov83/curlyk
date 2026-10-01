@@ -56,15 +56,6 @@ func (m model) View() string {
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, pan, left)
 	paneRow := lipgloss.JoinHorizontal(lipgloss.Top, row1, right)
 	header := m.renderHeader(m.width)
-	// import prompt overlay (drawn above the status bar)
-	if m.importing != nil {
-		importBar := lipgloss.NewStyle().
-			Background(lipgloss.Color("235")).
-			Foreground(lipgloss.Color("222")).
-			Width(m.width).
-			Render("curl> " + m.importing.input.View())
-		return header + "\n" + paneRow + "\n" + importBar + "\n" + bar
-	}
 	// save-as prompt for naming a new file
 	if m.saveAs != nil {
 		prompt := lipgloss.NewStyle().

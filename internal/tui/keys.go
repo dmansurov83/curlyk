@@ -104,29 +104,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	// When the import input is active, forward keys to it.
-	if m.importing != nil {
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.importing = nil
-			return m, nil
-		case "enter":
-			val := m.importing.input.Value()
-			m.importing = nil
-			m.performImport(val)
-			return m, nil
-		case "backspace":
-			m.importing.input, _ = m.importing.input.Update(msg)
-		case "delete":
-			m.importing.input, _ = m.importing.input.Update(msg)
-		case "left", "right", "home", "end":
-			m.importing.input, _ = m.importing.input.Update(msg)
-		default:
-			m.importing.input, _ = m.importing.input.Update(msg)
-		}
-		return m, nil
-	}
-
 	// Intercept bracketed paste (e.g. Ctrl+Shift+V / terminal context menu) so
 	// a pasted cURL command is auto-converted instead of inserted as raw text.
 	if msg.Paste {
@@ -174,6 +151,11 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.active == paneEdit {
 			m.ed.Redo()
 		}
+	case "ctrl+y":
+		// Delete the current line.
+		if m.active == paneEdit {
+			m.deleteLine()
+		}
 	case "ctrl+d":
 		m.dumpDebug()
 		return m, nil
@@ -218,10 +200,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.ed.clampCol()
 			m.ed.EnsureVisible()
 			m.markDirty()
-		}
-	case "ctrl+y":
-		m.importing = &importMode{
-			input: newImportInput(),
 		}
 	case "ctrl+a":
 		// Select all: entire editor buffer or entire response body.

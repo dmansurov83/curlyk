@@ -11,7 +11,7 @@ func (m *model) renderResponse(width, height int) string {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("Выполняется...")
 	}
 	if m.response == "" {
-		return "\n  Выполните запрос: Ctrl+Enter\n  Импорт cURL: Ctrl+Y\n  Переключение панелей: Tab"
+		return "\n  Выполните запрос: Ctrl+Enter\n  Переключение панелей: Tab"
 	}
 	lines := respBodyLines(m)
 	contentW := width - 2 // left border + scrollbar column
