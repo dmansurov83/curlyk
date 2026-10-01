@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/curlyk/httptool/internal/curl"
+	"github.com/user/curlyk/internal/curl"
 )
 
 func TestIsCurlCommand(t *testing.T) {

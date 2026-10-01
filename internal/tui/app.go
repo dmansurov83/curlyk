@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/user/curlyk/httptool/internal/curl"
-	"github.com/user/curlyk/httptool/internal/httpfile"
-	"github.com/user/curlyk/httptool/internal/runner"
-	"github.com/user/curlyk/httptool/internal/settings"
+	"github.com/mattn/go-runewidth"
+	"github.com/user/curlyk/internal/curl"
+	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/runner"
+	"github.com/user/curlyk/internal/settings"
 )
 
 type pane int
@@ -330,6 +332,17 @@ func New(args Args) tea.Model {
 	}
 	// left file panel: list .http files in the working directory
 	fp := &filesPanel{all: httpFilesInDir(".")}
+	// highlight the file actually open on startup: with an empty filter row 0
+	// is the "+ Новый файл" pseudo-entry, so the file index is offset by one.
+	if openPath != "" {
+		openBase := filepath.Base(openPath)
+		for i, f := range fp.all {
+			if f == openBase {
+				fp.sel = i + 1
+				break
+			}
+		}
+	}
 	return model{
 		ed:         ed,
 		active:     pane,
@@ -573,6 +586,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.importing = &importMode{
 			input: newImportInput(),
 		}
+	case "ctrl+a":
+		// Select all: entire editor buffer or entire response body.
+		m.selectAll()
 	case "tab":
 		switch m.active {
 		case paneEdit:
@@ -690,7 +706,7 @@ func knownModifierKey(key string) bool {
 	switch key {
 	case "ctrl+c", "ctrl+x", "ctrl+v", "ctrl+z", "ctrl+shift+z",
 		"ctrl+d", "ctrl+k", "ctrl+enter", "ctrl+r", "ctrl+y",
-		"ctrl+s", "ctrl+n",
+		"ctrl+s", "ctrl+n", "ctrl+a",
 		"ctrl+left", "ctrl+right", "ctrl+home", "ctrl+end",
 		"alt+left", "alt+right", "alt+home":
 		return true
@@ -866,6 +882,27 @@ func stateName(s runState) string {
 	return "idle"
 }
 
+// selectAll selects the entire editor buffer or the entire response body
+// depending on the active pane.
+func (m *model) selectAll() {
+	if m.active == paneEdit {
+		m.selActive = true
+		m.selAnchorRow, m.selAnchorCol = 0, 0
+		m.ed.curRow = len(m.ed.Lines()) - 1
+		m.ed.curCol = m.ed.lineLen(m.ed.curRow)
+		m.ed.EnsureVisible()
+	} else if m.active == paneResp {
+		lines := respPaneLines(m)
+		if len(lines) == 0 {
+			return
+		}
+		m.respSelActive = true
+		m.respSelAnchorRow, m.respSelAnchorCol = 0, 0
+		m.respSelCurRow = len(lines) - 1
+		m.respSelCurCol = len([]rune(lines[m.respSelCurRow]))
+	}
+}
+
 // shiftSelect expands the selection with Shift+arrow navigation.
 func (m *model) shiftSelect(key string) {
 	if !m.selActive {
@@ -928,14 +965,31 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	m.state = stateIdle
 	res := msg.res
 	if res.Err != nil {
-		m.status = "Ошибка: " + res.Err.Error()
-		m.response = ""
-		m.active = paneResp
-		return m
+		// Network errors (connection refused, DNS, timeout, TLS, etc.) are not
+		// HTTP responses, but they still belong in the response pane so the user
+		// can read, scroll and copy the failure just like a real response.
+		m.status = "Сетевая ошибка: " + res.Err.Error()
+		var hdr strings.Builder
+		hdr.WriteString("Сетевой запрос не выполнен\n")
+		if res.Request != nil {
+			hdr.WriteString(res.Request.Method + " " + res.Request.URL.String() + "\n")
+		}
+		if res.Duration > 0 {
+			hdr.WriteString("Время: " + res.Duration.Round(time.Millisecond).String() + "\n")
+		}
+		var b strings.Builder
+		b.WriteString(hdr.String())
+		b.WriteString("\n")
+		// The error is often one long unbroken line; wrap it to the response
+		// pane width so the whole message is visible instead of being cut off
+		// at the right edge of the pane.
+		b.WriteString(wrapToWidth(res.Err.Error(), m.respContentWidth()))
+		b.WriteString("\n")
+		return m.setResponse(b.String(), hdr.String(), nil)
 	}
 	var b strings.Builder
 	var hdr strings.Builder
-	hdr.WriteString("HTTP/" + res.Request.Proto + " " + res.Status + "\n")
+	hdr.WriteString(res.Request.Proto + " " + res.Status + "\n")
 	hdr.WriteString("Время: " + res.Duration.Round(time.Millisecond).String() + "\n")
 	res.Response.Header.Write(&hdr)
 	b.WriteString(hdr.String())
@@ -943,19 +997,119 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	if len(msg.body) > 0 {
 		b.WriteString(formatBody(msg.body))
 	}
-	m.response = b.String()
-	m.respHeader = hdr.String()
+	if res.Response != nil {
+		m.status = fmt.Sprintf("Ответ %d", res.Response.StatusCode)
+	}
+	return m.setResponse(b.String(), hdr.String(), msg.body)
+}
+
+// respContentWidth returns the display width of the response pane body in
+// cells, mirroring how renderResponse computes contentW.
+func (m *model) respContentWidth() int {
+	fw := m.filesWidth()
+	mid := (m.width - fw) / 2
+	respW := m.width - fw - mid - 1
+	if respW < 10 {
+		respW = m.width - fw - mid
+	}
+	w := respW - 2 // left border + scrollbar column
+	if w < 8 {
+		w = 8
+	}
+	return w
+}
+
+// wrapToWidth breaks a single long line of text at word boundaries so each
+// resulting line fits within max cells (in rune-aware display width, so wide
+// runes and spaces are handled). Existing newlines are preserved and continue
+// the wrapping independently.
+func wrapToWidth(s string, max int) string {
+	if max <= 0 {
+		return s
+	}
+	var out []string
+	for _, line := range strings.Split(s, "\n") {
+		out = append(out, wrapLine(line, max)...)
+	}
+	return strings.Join(out, "\n")
+}
+
+// wrapLine word-wraps one line (no embedded newlines) to max display cells,
+// breaking at spaces and hard-splitting any single word wider than max.
+func wrapLine(line string, max int) []string {
+	runes := []rune(line)
+	var result []string
+	cur := []rune{}
+	curW := 0
+	writeWord := func(word []rune, wordW int) {
+		if wordW <= max {
+			// fits on its own
+			if curW > 0 && curW+1+wordW > max {
+				result = append(result, string(cur))
+				cur = nil
+				curW = 0
+			} else if curW > 0 {
+				cur = append(cur, ' ')
+				curW++
+			}
+			cur = append(cur, word...)
+			curW += wordW
+			return
+		}
+		// over-wide word: if the line isn't empty, wrap first, then hard-split.
+		if curW > 0 {
+			result = append(result, string(cur))
+			cur = nil
+			curW = 0
+		}
+		for _, r := range word {
+			rw := runewidth.RuneWidth(r)
+			if curW > 0 && curW+rw > max {
+				result = append(result, string(cur))
+				cur = nil
+				curW = 0
+			}
+			cur = append(cur, r)
+			curW += rw
+		}
+	}
+	word := []rune{}
+	wordW := 0
+	flushWord := func() {
+		if len(word) > 0 {
+			writeWord(word, wordW)
+			word = nil
+			wordW = 0
+		}
+	}
+	for _, r := range runes {
+		if r == ' ' {
+			flushWord()
+			continue
+		}
+		word = append(word, r)
+		wordW += runewidth.RuneWidth(r)
+	}
+	flushWord()
+	if len(cur) > 0 {
+		result = append(result, string(cur))
+	}
+	return result
+}
+
+// setResponse stores a rendered response (header + body) in the response pane
+// and resets its scroll state. Used for both real HTTP responses and network
+// errors, so the failure text behaves like a normal response body.
+func (m model) setResponse(response, header string, body []byte) model {
+	m.response = response
+	m.respHeader = header
 	m.respHeaderLines = 0
 	if m.respHeader != "" {
 		m.respHeaderLines = len(strings.Split(strings.TrimRight(m.respHeader, "\n"), "\n"))
 	}
-	m.lastBody = msg.body
+	m.lastBody = body
 	m.respScroll = 0
 	m.respHScroll = 0
-	if res.Response != nil {
-		m.status = fmt.Sprintf("Ответ %d", res.Response.StatusCode)
-	}
-	m.active = paneResp
 	return m
 }
 

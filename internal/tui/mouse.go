@@ -134,8 +134,8 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 			m.clickRespScrollbar(y)
 			return m, nil
 		}
-		// copy-button row in the response pane (visual row headerHeight+1)
-		if x >= half && y == headerHeight+1 && m.response != "" {
+		// copy-button row in the response pane: directly below the header rows.
+		if x >= half && y == headerHeight+1+m.respHeaderLines && m.response != "" {
 			m.active = paneResp
 			m.copyAllResponse()
 			return m, nil
@@ -352,9 +352,10 @@ func mouseToEditorCell(m *model, x, y int) (row int, runeCol int, onIcon bool) {
 }
 
 // mouseToRespCell converts an absolute screen (x,y) in the right (response)
-// pane to a (row, runeCol) into the response BODY lines (0-based) and whether
-// it hit inside the pane. Rows are offset by respScroll. The copy button
-// (y=1) and the fixed header rows are skipped.
+// pane to a (row, runeCol) into the response pane's display lines (0-based,
+// header rows first, then the scrollable body) and whether it hit inside the
+// pane. Header rows are fixed and counted as-is; body rows are offset by
+// respScroll. The copy button (directly below the headers) and borders are skipped.
 func mouseToRespCell(m *model, x, y int) (row int, col int, ok bool) {
 	half := m.layout().half
 	if x < half || y <= headerHeight || y >= m.height-1 {
@@ -365,16 +366,28 @@ func mouseToRespCell(m *model, x, y int) (row int, col int, ok bool) {
 	if content < 0 {
 		content = 0
 	}
-	// body starts at pane row: top border + copy button + header lines.
-	bodyStart := headerHeight + 1 + 1 + m.respHeaderLines
-	visRow := y - bodyStart
-	if visRow < 0 {
-		visRow = 0
+	paneRow := y - (headerHeight + 1) // row within the pane interior (0 = first content row below top border)
+	switch {
+	case paneRow < 0:
+		return 0, 0, false
+	case paneRow < m.respHeaderLines:
+		// a fixed header line: pane-space row is its 0-based header index.
+		row = paneRow
+	case paneRow == m.respHeaderLines:
+		// the copy-button row: not selectable text.
+		return 0, 0, false
+	default:
+		// a scrollable body line: headerCount + bodyIndex(visible + respScroll).
+		bodyVis := paneRow - (1 + m.respHeaderLines)
+		row = m.respHeaderLineCount() + bodyVis + m.respScroll
 	}
-	row = visRow + m.respScroll
-	body := respBodyLines(m)
+
+	body := respPaneLines(m)
 	if len(body) == 0 {
 		return 0, col, true
+	}
+	if row < 0 {
+		row = 0
 	}
 	if row >= len(body) {
 		row = len(body) - 1

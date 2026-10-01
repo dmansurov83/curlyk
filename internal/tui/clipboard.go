@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/atotto/clipboard"
-	"github.com/user/curlyk/httptool/internal/curl"
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/curl"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // hasSelection reports whether there is a non-empty active selection.

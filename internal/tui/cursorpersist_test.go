@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/user/curlyk/httptool/internal/settings"
+	"github.com/user/curlyk/internal/settings"
 )
 
 // TestCursorPersistAndRestore verifies the cursor position is saved on exit and

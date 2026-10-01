@@ -25,14 +25,14 @@
         },
         "StringFileInfo": {
           "040904B0": {
-            "Comments": "HTTP Tool",
+            "Comments": "curlyk",
             "CompanyName": "",
-            "FileDescription": "HTTP Tool",
+            "FileDescription": "curlyk",
             "FileVersion": "1.0.0",
-            "InternalName": "httptool",
+            "InternalName": "curlyk",
             "LegalCopyright": "",
-            "OriginalFilename": "httptool.exe",
-            "ProductName": "HTTP Tool",
+            "OriginalFilename": "curlyk.exe",
+            "ProductName": "curlyk",
             "ProductVersion": "1.0.0"
           }
         },

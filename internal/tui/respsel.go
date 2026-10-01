@@ -2,12 +2,35 @@ package tui
 
 import "strings"
 
+// respHeaderCount returns how many fixed header rows the response pane shows
+// above the scrollable body (from m.respHeader, independent of respHeaderLines
+// which is only set during render).
+func respHeaderCount(m *model) int {
+	hdr := strings.TrimRight(m.respHeader, "\n")
+	if hdr == "" {
+		return 0
+	}
+	return len(strings.Split(hdr, "\n"))
+}
+
+// respPaneLines returns the response-pane display lines in vertical order:
+// the fixed header rows first, then the scrollable body. This is the coordinate
+// space the response-pane selection cursor lives in, so selecting and copying
+// the response headers works like any other visible line.
+func respPaneLines(m *model) []string {
+	var out []string
+	if h := strings.TrimRight(m.respHeader, "\n"); h != "" {
+		out = append(out, strings.Split(h, "\n")...)
+	}
+	return append(out, respBodyLines(m)...)
+}
+
 // respSelectedText returns the response text covered by the current selection.
 func (m *model) respSelectedText() string {
 	if !m.respSelActive {
 		return ""
 	}
-	lines := respBodyLines(m)
+	lines := respPaneLines(m)
 	ar, ac := m.respSelAnchorRow, m.respSelAnchorCol
 	cr, cc := m.respSelCurRow, m.respSelCurCol
 	sr, sc, er, ec := ar, ac, cr, cc
@@ -72,7 +95,7 @@ func (m *model) respShiftSelect(key string) {
 
 // respMoveStep moves the response selection cursor by key, optionally extending.
 func (m *model) respMoveStep(key string, extend bool) {
-	lines := respBodyLines(m)
+	lines := respPaneLines(m)
 	maxRow := len(lines) - 1
 	if maxRow < 0 {
 		return
@@ -113,12 +136,17 @@ func (m *model) respMoveStep(key string, extend bool) {
 		col = len([]rune(lines[row]))
 	}
 	m.respSelCurRow, m.respSelCurCol = row, col
-	// auto-scroll to keep cursor visible
-	if row < m.respScroll {
-		m.respScroll = row
+	// auto-scroll to keep cursor visible. respScroll is body-relative, while the
+	// cursor row counts header lines first, so shift into body space.
+	bodyRow := row - m.respHeaderLineCount()
+	if bodyRow < 0 {
+		bodyRow = 0
 	}
-	if row >= m.respScroll+m.ed.height {
-		m.respScroll = row - m.ed.height + 1
+	if bodyRow < m.respScroll {
+		m.respScroll = bodyRow
+	}
+	if bodyRow >= m.respScroll+m.ed.height {
+		m.respScroll = bodyRow - m.ed.height + 1
 	}
 	if m.respScroll < 0 {
 		m.respScroll = 0

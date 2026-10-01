@@ -55,3 +55,30 @@ func TestSelRenderNotScrolled(t *testing.T) {
 		t.Fatalf("expected line text, got %q", plain)
 	}
 }
+
+// TestRespHeaderSelectionRendered verifies that selecting a response header row
+// actually paints the selection highlight on that fixed header line (a bug where
+// header rows never got the selection background even though the selection state
+// covered them).
+func TestRespHeaderSelectionRendered(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneResp
+	m.response = "HTTP/1.1 200 OK\nВремя: 5ms\nX-Auth: secret\n\nbody\n"
+	m.respHeader = "HTTP/1.1 200 OK\nВремя: 5ms\nX-Auth: secret\n"
+	m.respHeaderLines = 3
+	m.respScroll = 0
+	// Select across the header row (pane row 2 = "X-Auth: secret").
+	m.respSelActive = true
+	m.respSelAnchorRow, m.respSelAnchorCol = 2, 0
+	m.respSelCurRow, m.respSelCurCol = 2, 8
+
+	out := m.renderResponse(60, 12)
+	plain := stripANSI(out)
+	if !strings.Contains(plain, "X-Auth") {
+		t.Fatalf("expected header line in render, got %q", plain)
+	}
+	// The selection background (48;5;24) must appear inside the header block.
+	if !strings.Contains(out, ";24m") {
+		t.Errorf("selection background missing from response render (header not highlighted), out=%q", out)
+	}
+}

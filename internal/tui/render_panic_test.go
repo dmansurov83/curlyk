@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // TestRenderLineWithCursorSelNoPanicAtEnd reproduces a panic where the cursor

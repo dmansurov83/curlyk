@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 func TestEditorTextRoundtrip(t *testing.T) {

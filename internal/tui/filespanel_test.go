@@ -9,6 +9,29 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// TestFilesPanelStartupSelectsOpenFile verifies the sidebar highlights the
+// file opened on startup.
+func TestFilesPanelStartupSelectsOpenFile(t *testing.T) {
+	dir := t.TempDir()
+	wd, _ := os.Getwd()
+	defer os.Chdir(wd)
+	os.Chdir(dir)
+	os.WriteFile(filepath.Join(dir, "open.http"), []byte("GET http://a/1\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "other.http"), []byte("GET http://b/2\n"), 0o644)
+
+	m := New(Args{FilePath: "open.http", Width: 120, Height: 30}).(model)
+	if m.filePath != "open.http" {
+		t.Fatalf("filePath=%q want open.http", m.filePath)
+	}
+	if m.filesPanel.sel != 1 {
+		t.Errorf("startup sel=%d want 1 (open.http after the new-file row)", m.filesPanel.sel)
+	}
+	v := m.View()
+	if !strings.Contains(v, "▸ open.http") {
+		t.Errorf("open.http not highlighted in view:\n%s", v)
+	}
+}
+
 // TestFilesPanelSelectFile verifies arrow navigation includes the "new file"
 // row and selecting an actual file opens it (index offset).
 func TestFilesPanelSelectFile(t *testing.T) {

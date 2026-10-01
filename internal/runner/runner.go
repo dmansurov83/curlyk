@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // Options controls how requests are executed.

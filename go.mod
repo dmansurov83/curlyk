@@ -1,4 +1,4 @@
-module github.com/user/curlyk/httptool
+module github.com/user/curlyk
 
 go 1.27
 

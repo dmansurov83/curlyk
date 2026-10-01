@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mattn/go-runewidth"
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // editor is a minimal text editor: a buffer of lines, a cursor and viewport

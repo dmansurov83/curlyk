@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/curlyk/httptool/internal/curl"
-	"github.com/user/curlyk/httptool/internal/httpfile"
-	"github.com/user/curlyk/httptool/internal/runner"
+	"github.com/user/curlyk/internal/curl"
+	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/runner"
 )
 
 // TestImportThenRun simulates: import cURL -> get .http block -> run it against a local server.

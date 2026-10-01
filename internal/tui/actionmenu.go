@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/curlyk/httptool/internal/httpfile"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // menuItem is one selectable entry in the request action popup.
@@ -32,7 +32,7 @@ type actionMenu struct {
 var menuSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("63"))
 
 // menuNormalStyle is the base item style.
-var menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+var menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("237"))
 
 // menuItems builds the selectable actions for the request popup.
 func menuItems() []menuItem {
@@ -103,13 +103,13 @@ func (m *model) menuLines(contentW int) []string {
 	}
 	out := make([]string, 0, len(menu.items))
 	for i, it := range menu.items {
-		var line string
+		line := padToWidth("  "+it.label, contentW)
 		if i == menu.sel {
-			line = menuSelStyle.Render("  " + it.label)
+			line = menuSelStyle.Render(line)
 		} else {
-			line = menuNormalStyle.Render("  " + it.label)
+			line = menuNormalStyle.Render(line)
 		}
-		out = append(out, padToWidth(line, contentW))
+		out = append(out, line)
 	}
 	return out
 }
