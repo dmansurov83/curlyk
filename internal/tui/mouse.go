@@ -10,13 +10,13 @@ import (
 // panes in ABSOLUTE screen columns (borders included): the files sidebar, the
 // editor and the response pane.
 type paneLayout struct {
-	files     int // files sidebar interior width (as rendered incl. borders)
-	filesEnd  int // absolute col just past the files pane (its right border + 1)
-	mid       int // editor pane interior width
-	editorL   int // absolute col of the editor pane's left border
-	editorR   int // absolute col of the editor pane's right border (inclusive)
-	half      int // absolute col of the response pane's left border = editorR + 1
-	respR     int // response pane right border (inclusive) = width-1
+	files    int // files sidebar interior width (as rendered incl. borders)
+	filesEnd int // absolute col just past the files pane (its right border + 1)
+	mid      int // editor pane interior width
+	editorL  int // absolute col of the editor pane's left border
+	editorR  int // absolute col of the editor pane's right border (inclusive)
+	half     int // absolute col of the response pane's left border = editorR + 1
+	respR    int // response pane right border (inclusive) = width-1
 }
 
 // layout computes the current pane geometry from the model dimensions.

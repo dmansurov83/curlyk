@@ -8,16 +8,16 @@ import (
 type TokenType int
 
 const (
-	TokComment    TokenType = iota // # or // comment line
-	TokSeparator                   // ### request separator
-	TokMethod                      // GET, POST, ...
-	TokURL                         // request target on the request line
-	TokHTTPVersion                 // trailing HTTP/1.1
-	TokHeaderName                  // header name before ':'
-	TokHeaderValue                 // header value after ':'
-	TokBodyText                    // raw body line
-	TokVariable                    // a {{ ... }} placeholder (may be embedded)
-	TokOther                       // anything not classified
+	TokComment     TokenType = iota // # or // comment line
+	TokSeparator                    // ### request separator
+	TokMethod                       // GET, POST, ...
+	TokURL                          // request target on the request line
+	TokHTTPVersion                  // trailing HTTP/1.1
+	TokHeaderName                   // header name before ':'
+	TokHeaderValue                  // header value after ':'
+	TokBodyText                     // raw body line
+	TokVariable                     // a {{ ... }} placeholder (may be embedded)
+	TokOther                        // anything not classified
 )
 
 // VarSpan locates a {{...}} variable inside a token's Value.

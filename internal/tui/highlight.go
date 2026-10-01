@@ -5,15 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/user/curlyk/internal/httpfile"
 )
-
-func init() {
-	// Force 24-bit ANSI color rendering so syntax highlighting and the block
-	// cursor are visible even when stdout is not detected as a terminal.
-	lipgloss.SetColorProfile(termenv.TrueColor)
-}
 
 // stripANSI removes ANSI escape sequences from a string (used by the debug dump).
 func stripANSI(s string) string {
@@ -314,7 +307,7 @@ func renderLineWithCursorSel(raw string, col int, toks []httpfile.Token, selStar
 	bounds := []int{0, selStart, selEnd, c, c + 1, len(runes)}
 	// sort & dedupe
 	bounds = sortInts(bounds)
-for i := 1; i < len(bounds); i++ {
+	for i := 1; i < len(bounds); i++ {
 		s, e := bounds[i-1], bounds[i]
 		// Clamp both boundaries to the line length: when the cursor sits at the
 		// end of the line (c == len(runes)), the c+1 boundary exceeds the
@@ -384,4 +377,3 @@ func baseStyle(t httpfile.TokenType) lipgloss.Style {
 		return otherStyle
 	}
 }
-

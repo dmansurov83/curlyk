@@ -5,14 +5,14 @@ import "strings"
 type parseMode int
 
 const (
-	modeNone parseMode = iota // before any request line
-	modeHeaders               // collecting headers after a request line
-	modeBody                  // collecting body after headers/blank line
+	modeNone    parseMode = iota // before any request line
+	modeHeaders                  // collecting headers after a request line
+	modeBody                     // collecting body after headers/blank line
 )
 
 // ParseFile parses .http source and returns all request blocks.
 func ParseFile(src string) []Request {
-var reqs []Request
+	var reqs []Request
 	var cur Request
 	mode := modeNone
 	var bodyLines []string

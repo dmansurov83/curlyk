@@ -15,8 +15,8 @@ type Settings struct {
 	// DefaultFile is the sample content shown when nothing else is available.
 	DefaultFile string `yaml:"default_file,omitempty"`
 	// CursorRow / CursorCol restore the editor cursor position on open.
-	CursorRow    int `yaml:"cursor_row"`
-	CursorCol    int `yaml:"cursor_col"`
+	CursorRow int `yaml:"cursor_row"`
+	CursorCol int `yaml:"cursor_col"`
 	// EditorScroll restores the vertical scroll offset.
 	EditorScroll int `yaml:"editor_scroll"`
 	// ActivePane restores the active pane (0 = editor, 1 = response).
@@ -45,11 +45,11 @@ var appSettingsPath = func() string {
 	return "appsettings.yml"
 }
 
-// Load reads appsettings.yml from the working directory. Returns defaults if
-// the file is missing or malformed.
-func Load() Settings {
+// LoadAt reads settings from the given path. Returns defaults if the file is
+// missing or malformed.
+func LoadAt(path string) Settings {
 	s := Default()
-	data, err := os.ReadFile(appSettingsPath())
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return s
 	}
@@ -59,13 +59,24 @@ func Load() Settings {
 	return s
 }
 
-// Save writes the settings to appsettings.yml.
-func (s Settings) Save() error {
+// Load reads appsettings.yml from the working directory. Returns defaults if
+// the file is missing or malformed.
+func Load() Settings {
+	return LoadAt(appSettingsPath())
+}
+
+// SaveAt writes the settings to the given path.
+func (s Settings) SaveAt(path string) error {
 	data, err := yaml.Marshal(s)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(appSettingsPath(), data, 0o644)
+	return os.WriteFile(path, data, 0o644)
+}
+
+// Save writes the settings to appsettings.yml.
+func (s Settings) Save() error {
+	return s.SaveAt(appSettingsPath())
 }
 
 // SetAppSettingsPath overrides where appsettings.yml lives (tests).

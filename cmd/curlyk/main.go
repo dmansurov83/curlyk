@@ -9,12 +9,16 @@ import (
 )
 
 func main() {
-	m := tui.New(initialArgs())
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
-	if _, err := p.Run(); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "Ошибка запуска:", err)
 		os.Exit(1)
 	}
+}
+
+func run() error {
+	p := tea.NewProgram(tui.New(initialArgs()), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	_, err := p.Run()
+	return err
 }
 
 func initialArgs() tui.Args {
