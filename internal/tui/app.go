@@ -97,6 +97,10 @@ type model struct {
 	// keyed by absolute file path, so switching between files restores the
 	// position each file was left at.
 	perFileCursor map[string]editorPos
+	// lastPersisted is the last cursor position written to settings, used by
+	// the periodic autosave loop to avoid rewriting appsettings.yml on every
+	// tick when nothing moved.
+	lastPersisted editorPos
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).
@@ -296,6 +300,24 @@ func (m *model) saveSession() {
 	_ = s.Save()
 }
 
+// persistCursorIfChanged writes the current editor cursor position for the
+// open file into appsettings.yml when it differs from the last-persisted value.
+// Called from the periodic autosave loop so the position survives even if the
+// terminal/process is closed without a clean quit (Esc Esc / F10).
+func (m *model) persistCursorIfChanged() {
+	if m.filePath == "" || m.ed == nil {
+		return
+	}
+	cur := editorPos{row: m.ed.curRow, col: m.ed.curCol, scroll: m.ed.scroll}
+	if cur == m.lastPersisted {
+		return
+	}
+	// keep the in-memory per-file map and go through rememberCursor so both the
+	// map and the yml stay consistent.
+	m.rememberCursor(m.filePath)
+	m.lastPersisted = cur
+}
+
 // rememberCursor records the current editor position under the given file path
 // so it can be restored when the file is opened again. It also persists the
 // position to appsettings.yml so it survives a restart.
@@ -408,6 +430,13 @@ func New(args Args) tea.Model {
 	if s.ActivePane == 1 {
 		pane = paneResp
 	}
+	// restore the per-file cursor for the opened file (freshly saved on the fly,
+	// unlike the global cursor which is only written on a clean quit). This
+	// keeps the position correct even when the app was closed via the window's
+	// close button.
+	m := &model{ed: ed}
+	m.applyCursor(openPath)
+	ed = m.ed
 	// left file panel: list .http files in the working directory
 	fp := &filesPanel{all: httpFilesInDir(".")}
 	// highlight the file actually open on startup: with an empty filter row 0
@@ -466,6 +495,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		now := time.Now()
 		m.closeEditBatchIfExpired(now)
 		m.applyAutosave(now)
+		m.persistCursorIfChanged()
 		return m, autosaveLoop()
 	}
 	return m, nil
