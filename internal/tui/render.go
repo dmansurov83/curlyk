@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // fileSelStyle highlights the selected file row in the sidebar.
@@ -11,7 +12,7 @@ var fileSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(tr
 
 func (m model) View() string {
 	if m.width == 0 {
-		return "Загрузка редактора...\n"
+		return i18n.T("loading.editor") + "\n"
 	}
 	// left file panel width
 	lay := m.layout()
@@ -62,7 +63,7 @@ func (m model) View() string {
 			Background(lipgloss.Color("235")).
 			Foreground(lipgloss.Color("222")).
 			Width(m.width).
-			Render("Сохранить как: " + m.saveAs.View())
+			Render(i18n.T("saveAs.prompt", m.saveAs.View()))
 		return header + "\n" + paneRow + "\n" + prompt + "\n" + bar
 	}
 	return header + "\n" + paneRow + "\n" + bar
@@ -80,7 +81,7 @@ func (m *model) renderFilesPanel(width, height int) string {
 	}
 	var sb strings.Builder
 	// search box
-	search := "поиск: " + p.filter + "|"
+	search := i18n.T("search.label", p.filter)
 	sb.WriteString(truncateWidth(search, width-2))
 	sb.WriteString("\n\n")
 	selStyle := fileSelStyle
@@ -88,9 +89,9 @@ func (m *model) renderFilesPanel(width, height int) string {
 	idx := 0
 	if p.filter == "" {
 		if p.sel == 0 {
-			sb.WriteString(selStyle.Render("▸ + Новый файл") + "\n")
+			sb.WriteString(selStyle.Render("▸ "+i18n.T("file.new")) + "\n")
 		} else {
-			sb.WriteString("  + Новый файл\n")
+			sb.WriteString("  " + i18n.T("file.new") + "\n")
 		}
 		idx++
 	}
@@ -108,8 +109,6 @@ func (m *model) renderFilesPanel(width, height int) string {
 }
 
 var exampleHTTP = `
-
-### Получить пользователя
 GET https://httpbin.org/get?x=1
 Accept: application/json
 

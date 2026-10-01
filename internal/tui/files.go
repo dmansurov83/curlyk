@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // filesPanel is the left sidebar listing .http files with a search/filter box.
@@ -133,7 +134,7 @@ func (m *model) openPanelFile() {
 	name := listed[fileIdx]
 	data, err := os.ReadFile(name)
 	if err != nil {
-		m.status = "Не удалось открыть " + name + ": " + err.Error()
+		m.status = i18n.T("err.openFile", name, err.Error())
 		return
 	}
 	// remember where the cursor was in the file being left
@@ -141,7 +142,7 @@ func (m *model) openPanelFile() {
 	m.ed.SetText(string(data))
 	m.filePath = name
 	m.active = paneEdit
-	m.status = "Открыт " + name
+	m.status = i18n.T("status.opened", name)
 	rememberLastOpened(name)
 	// restore the cursor position this file was left at
 	m.applyCursor(name)
@@ -178,7 +179,7 @@ func (m *model) newBuffer() {
 	m.ed.SetText("")
 	m.filePath = ""
 	m.active = paneEdit
-	m.status = "Новый файл (Ctrl+S — сохранить)"
+	m.status = i18n.T("status.newFile")
 }
 
 // saveBuffer writes the editor to its file, or to the session file when no
@@ -190,19 +191,19 @@ func (m *model) saveBuffer() {
 	}
 	m.ed.sanitize()
 	if err := os.WriteFile(target, []byte(m.ed.Text()), 0o644); err != nil {
-		m.status = "Не удалось сохранить: " + err.Error()
+		m.status = i18n.T("err.save", err.Error())
 		return
 	}
 	if m.filePath == "" {
 		m.filePath = sessionPath()
 	}
-	m.status = "Сохранено в " + filepath.Base(target)
+	m.status = i18n.T("status.saved", filepath.Base(target))
 }
 
 // beginSaveAs opens an input to type a file name for an unnamed buffer.
 func (m *model) beginSaveAs() {
 	ti := textinput.New()
-	ti.Placeholder = "имя файла.http"
+	ti.Placeholder = i18n.T("placeholder.filename")
 	ti.Focus()
 	ti.Width = 40
 	m.saveAs = &ti
@@ -216,11 +217,11 @@ func (m *model) saveBufferAs(name string) {
 	}
 	m.ed.sanitize()
 	if err := os.WriteFile(name, []byte(m.ed.Text()), 0o644); err != nil {
-		m.status = "Не удалось сохранить: " + err.Error()
+		m.status = i18n.T("err.save", err.Error())
 		return
 	}
 	m.filePath = name
-	m.status = "Сохранено в " + name
+	m.status = i18n.T("status.saved", name)
 	rememberLastOpened(name)
 	m.refreshFilesPanel()
 }

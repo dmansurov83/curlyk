@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // runIconStyle styles the run ▶ icon in the editor gutter.
@@ -30,7 +31,7 @@ var scrollbarTrackStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 // renderHeader draws the top bar with the current file name.
 func (m *model) renderHeader(width int) string {
 	name := m.currentFileName()
-	txt := "Файл: " + name
+	txt := i18n.T("header.file", name)
 	st := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).
 		Foreground(lipgloss.Color("252")).
@@ -43,7 +44,7 @@ func (m *model) renderHeader(width int) string {
 // last-session buffer.
 func (m *model) currentFileName() string {
 	if m.filePath == "" {
-		return "новый файл"
+		return i18n.T("file.unnamed")
 	}
 	return filepath.Base(m.filePath)
 }

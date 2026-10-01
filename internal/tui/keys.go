@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/user/curlyk/internal/curl"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // editBatchGap is how long a burst of characters may pause before its undo
@@ -68,7 +69,7 @@ func (m *model) convertBurstCurl(text string) bool {
 	m.insertText(block)
 	m.ed.clampCol()
 	m.ed.EnsureVisible()
-	m.status = "cURL конвертирован в запрос"
+	m.status = i18n.T("status.curlConverted")
 	return true
 }
 
@@ -163,6 +164,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.active == paneEdit {
 			m.copyAsCurl()
 		}
+		return m, nil
+	case "ctrl+l":
+		m.toggleLanguage()
 		return m, nil
 	case "f10":
 		return m, m.quitWithSave()
@@ -280,7 +284,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func knownModifierKey(key string) bool {
 	switch key {
 	case "ctrl+c", "ctrl+x", "ctrl+v", "ctrl+z", "ctrl+shift+z",
-		"ctrl+d", "ctrl+k", "ctrl+enter", "ctrl+r", "ctrl+y",
+		"ctrl+d", "ctrl+k", "ctrl+l", "ctrl+enter", "ctrl+r", "ctrl+y",
 		"ctrl+s", "ctrl+n", "ctrl+a",
 		"ctrl+left", "ctrl+right", "ctrl+home", "ctrl+end",
 		"alt+left", "alt+right", "alt+home":

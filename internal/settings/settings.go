@@ -24,6 +24,9 @@ type Settings struct {
 	// FileCursors remembers the cursor position per opened file, keyed by the
 	// file's path, so switching between files and across restarts restores it.
 	FileCursors map[string]CursorPos `yaml:"file_cursors,omitempty"`
+	// Lang is the UI locale code ("ru" or "en"). An empty value means the
+	// default "ru" (or whatever CURLYK_LANG selects).
+	Lang string `yaml:"lang,omitempty"`
 }
 
 // CursorPos is a remembered cursor position for a single file.

@@ -5,12 +5,15 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/user/curlyk/internal/i18n"
+	"github.com/user/curlyk/internal/settings"
 	"github.com/user/curlyk/internal/tui"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "Ошибка запуска:", err)
+		i18n.SetLocale(i18n.Resolve(settings.Load().Lang))
+		fmt.Fprintln(os.Stderr, i18n.T("err.startup", err))
 		os.Exit(1)
 	}
 }

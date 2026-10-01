@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/user/curlyk/internal/i18n"
 	"github.com/user/curlyk/internal/settings"
 )
 
@@ -88,7 +89,7 @@ func (m *model) saveSession() {
 		target = sessionPath()
 	}
 	if err := os.WriteFile(target, []byte(m.ed.Text()), 0o644); err != nil {
-		m.status = "Не удалось сохранить: " + err.Error()
+		m.status = i18n.T("err.save", err.Error())
 		return
 	}
 	if m.filePath == "" {

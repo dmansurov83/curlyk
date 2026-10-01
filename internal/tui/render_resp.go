@@ -4,14 +4,15 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 func (m *model) renderResponse(width, height int) string {
 	if m.state == stateRunning {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("Выполняется...")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render(i18n.T("status.executing"))
 	}
 	if m.response == "" {
-		return "\n  Выполните запрос: Ctrl+Enter\n  Переключение панелей: Tab"
+		return "\n  " + strings.ReplaceAll(i18n.T("resp.empty"), "\n", "\n  ")
 	}
 	lines := respBodyLines(m)
 	contentW := width - 2 // left border + scrollbar column
@@ -129,7 +130,7 @@ func (m *model) respHeaderLineCount() int {
 // copyButtonRow renders the clickable "copy response" button line. It is shown
 // in the response pane on a grey background so it reads as a clickable control.
 func copyButtonRow(contentW int) string {
-	label := "⧉  Скопировать ответ"
+	label := i18n.T("resp.copyButton")
 	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
 	btn := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("255")).

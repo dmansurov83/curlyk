@@ -12,7 +12,8 @@ func TestRenderStartsAtLine1Repro(t *testing.T) {
 	out := m.renderEditor(60)
 	plain := stripANSI(out)
 
-	if !indexOfBefore(plain, " 1 ", "### Получить") {
+	// line 1 label must precede the first content (GET block header line)
+	if !indexOfBefore(plain, " 1 ", "GET") {
 		t.Errorf("line 1 label must precede first content:\nSTART[%s]END", plain)
 	}
 	// line 2 label must precede GET

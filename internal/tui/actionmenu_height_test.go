@@ -13,7 +13,7 @@ import (
 func TestMenuOpenKeepsFrameFit(t *testing.T) {
 	for _, h := range []int{9, 10, 12, 15, 20} {
 		m := New(Args{Width: 100, Height: h}).(model)
-		m.ed.curRow = 3 // request line "GET https://httpbin.org/get?x=1"
+		m.ed.curRow = 1 // request line "GET https://httpbin.org/get?x=1"
 		m.beginActionMenu()
 		if m.actionMenu == nil {
 			t.Fatalf("height=%d: menu not opened", h)

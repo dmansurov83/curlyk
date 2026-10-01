@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/i18n"
 	"github.com/user/curlyk/internal/runner"
 	"github.com/user/curlyk/internal/settings"
 )
@@ -107,7 +108,7 @@ func initialModel() model {
 	return model{
 		ed:     newEditor(exampleHTTP, 80, 20),
 		active: paneEdit,
-		status: "Готов. Ctrl+Enter — выполнить, ^Y — импорт cURL, ^K — copy as cURL, Tab — панель, ^D — дамп",
+		status: i18n.T("ready.initial"),
 	}
 }
 
@@ -160,6 +161,7 @@ func New(args Args) tea.Model {
 	ed.width, ed.height = w/2, h-6
 	// restore cursor / scroll / pane from settings
 	s := settings.Load()
+	i18n.SetLocale(i18n.Resolve(s.Lang))
 	if s.CursorRow >= 0 && s.CursorRow < len(ed.Lines()) {
 		ed.curRow = s.CursorRow
 	}
@@ -198,7 +200,7 @@ func New(args Args) tea.Model {
 		ed:         ed,
 		active:     pane,
 		filesPanel: fp,
-		status:     "Готов. Ctrl+Enter — выполнить, 2xEsc/F10 — выход, ^C/^X/^V — буфер, ^+стрелки — слова",
+		status:     i18n.T("ready.main"),
 		filePath:   openPath,
 		width:      w,
 		height:     h,
@@ -380,10 +382,10 @@ func (m *model) dumpDebug() {
 	b.WriteString("\n-- END RENDERED VIEW --\n")
 
 	if err := os.WriteFile("debug.txt", []byte(b.String()), 0o644); err != nil {
-		m.status = "Ошибка записи debug.txt: " + err.Error()
+		m.status = i18n.T("err.debugWrite", err.Error())
 		return
 	}
-	m.status = "Дамп записан в debug.txt"
+	m.status = i18n.T("status.debugDumped")
 }
 
 func paneName(p pane) string {
@@ -452,12 +454,12 @@ func (m *model) runRequest() tea.Cmd {
 	reqs := httpfile.ParseFile(m.ed.Text())
 	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
 	if req == nil {
-		m.status = "Нет HTTP-запроса под курсором"
+		m.status = i18n.T("err.noRequestCursor")
 		m.active = paneEdit
 		return nil
 	}
 	m.state = stateRunning
-	m.status = "Выполняется " + req.Method + " " + req.URL + " ..."
+	m.status = i18n.T("status.running", req.Method, req.URL)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -481,14 +483,14 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 		// Network errors (connection refused, DNS, timeout, TLS, etc.) are not
 		// HTTP responses, but they still belong in the response pane so the user
 		// can read, scroll and copy the failure just like a real response.
-		m.status = "Сетевая ошибка: " + res.Err.Error()
+		m.status = i18n.T("err.network", res.Err.Error())
 		var hdr strings.Builder
-		hdr.WriteString("Сетевой запрос не выполнен\n")
+		hdr.WriteString(i18n.T("resp.netFailed") + "\n")
 		if res.Request != nil {
 			hdr.WriteString(res.Request.Method + " " + res.Request.URL.String() + "\n")
 		}
 		if res.Duration > 0 {
-			hdr.WriteString("Время: " + res.Duration.Round(time.Millisecond).String() + "\n")
+			hdr.WriteString(i18n.T("resp.duration", res.Duration.Round(time.Millisecond).String()) + "\n")
 		}
 		var b strings.Builder
 		b.WriteString(hdr.String())
@@ -503,7 +505,7 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	var b strings.Builder
 	var hdr strings.Builder
 	hdr.WriteString(res.Request.Proto + " " + res.Status + "\n")
-	hdr.WriteString("Время: " + res.Duration.Round(time.Millisecond).String() + "\n")
+	hdr.WriteString(i18n.T("resp.duration", res.Duration.Round(time.Millisecond).String()) + "\n")
 	res.Response.Header.Write(&hdr)
 	// http.Header.Write terminates each line with CRLF; the trailing \r is a
 	// literal carriage return that in a terminal rewinds the cursor to column 0,
@@ -516,7 +518,7 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 		b.WriteString(formatBody(msg.body))
 	}
 	if res.Response != nil {
-		m.status = fmt.Sprintf("Ответ %d", res.Response.StatusCode)
+		m.status = fmt.Sprintf(i18n.T("resp.statusCode"), res.Response.StatusCode)
 	}
 	return m.setResponse(b.String(), hdrStr, msg.body)
 }
@@ -552,5 +554,3 @@ func (m model) setResponse(response, header string, body []byte) model {
 	m.respHScroll = 0
 	return m
 }
-
-

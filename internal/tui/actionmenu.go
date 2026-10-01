@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // menuItem is one selectable entry in the request action popup.
@@ -37,9 +38,9 @@ var menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Back
 // menuItems builds the selectable actions for the request popup.
 func menuItems() []menuItem {
 	return []menuItem{
-		{label: "▶ Выполнить", run: func(mm *model) tea.Cmd { return mm.runRequest() }},
-		{label: "⧉ Копировать как cURL", run: func(mm *model) tea.Cmd { mm.copyAsCurl(); return nil }},
-		{label: "{} Форматировать JSON", run: func(mm *model) tea.Cmd { mm.formatRequestJSON(); return nil }},
+		{label: i18n.T("menu.run"), run: func(mm *model) tea.Cmd { return mm.runRequest() }},
+		{label: i18n.T("menu.copyCurl"), run: func(mm *model) tea.Cmd { mm.copyAsCurl(); return nil }},
+		{label: i18n.T("menu.formatJson"), run: func(mm *model) tea.Cmd { mm.formatRequestJSON(); return nil }},
 	}
 }
 
@@ -175,21 +176,21 @@ func (m *model) formatRequestJSON() {
 	reqs := httpfile.ParseFile(m.ed.Text())
 	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
 	if req == nil || req.Body == "" {
-		m.status = "Нет тела запроса для форматирования"
+		m.status = i18n.T("err.noBodyFormat")
 		return
 	}
 	trimmed := strings.TrimSpace(req.Body)
 	if trimmed == "" || !json.Valid([]byte(trimmed)) {
-		m.status = "Тело запроса не является валидным JSON"
+		m.status = i18n.T("err.notJson")
 		return
 	}
 	var out bytes.Buffer
 	if err := json.Indent(&out, []byte(trimmed), "", "  "); err != nil {
-		m.status = "Ошибка форматирования JSON: " + err.Error()
+		m.status = i18n.T("err.formatJson", err.Error())
 		return
 	}
 	if req.BodyStart <= 0 || req.BodyEnd < req.BodyStart {
-		m.status = "Не удалось определить строки тела запроса"
+		m.status = i18n.T("err.bodyRange")
 		return
 	}
 	// Replace the body line range [BodyStart, BodyEnd] (1-based) with the
@@ -207,5 +208,5 @@ func (m *model) formatRequestJSON() {
 	newLines = append(newLines, m.ed.lines[end:]...)
 	m.ed.lines = newLines
 	m.ed.clampCol()
-	m.status = "JSON тела отформатирован"
+	m.status = i18n.T("status.jsonFormatted")
 }

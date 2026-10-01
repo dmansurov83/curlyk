@@ -1,12 +1,12 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/atotto/clipboard"
 	"github.com/user/curlyk/internal/curl"
 	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/i18n"
 )
 
 // hasSelection reports whether there is a non-empty active selection.
@@ -23,7 +23,7 @@ func (m *model) hasSelection() bool {
 func (m *model) copySelection() {
 	if !m.selActive {
 		// no active selection: nothing to copy
-		m.status = "Нет выделения для копирования"
+		m.status = i18n.T("err.noSelection")
 		return
 	}
 	aRow, aCol := m.selAnchorRow, m.selAnchorCol
@@ -32,10 +32,10 @@ func (m *model) copySelection() {
 		return
 	}
 	if err := writeClipboardSafe(text); err != nil {
-		m.status = "Не удалось скопировать: " + err.Error()
+		m.status = i18n.T("err.copy", err.Error())
 		return
 	}
-	m.status = "Скопировано (" + fmt.Sprintf("%d", len([]rune(text))) + " симв.)"
+	m.status = i18n.T("status.copiedChars", len([]rune(text)))
 	m.selActive = false
 }
 
@@ -53,7 +53,7 @@ func (m *model) copyAsCurl() {
 	reqs := httpfile.ParseFile(m.ed.Text())
 	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
 	if req == nil {
-		m.status = "Нет запроса под курсором"
+		m.status = i18n.T("err.noRequest")
 		return
 	}
 	var headers []string
@@ -62,24 +62,24 @@ func (m *model) copyAsCurl() {
 	}
 	cmd := curl.ExportRequest(req.Method, req.URL, headers, req.Body)
 	if err := writeClipboardSafe(cmd); err != nil {
-		m.status = "Не удалось скопировать cURL: " + err.Error()
+		m.status = i18n.T("err.copyCurl", err.Error())
 		return
 	}
-	m.status = "cURL скопирован"
+	m.status = i18n.T("status.curlCopied")
 }
 
 // copyRespSelection copies the selected response text to the clipboard.
 func (m *model) copyRespSelection() {
 	text := m.respSelectedText()
 	if text == "" {
-		m.status = "Нет выделения в ответе для копирования"
+		m.status = i18n.T("err.noRespSelection")
 		return
 	}
 	if err := writeClipboardSafe(text); err != nil {
-		m.status = "Не удалось копировать: " + err.Error()
+		m.status = i18n.T("err.copyGeneric", err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Скопировано из ответа (%d симв.)", len([]rune(text)))
+	m.status = i18n.T("status.copiedResp", len([]rune(text)))
 	m.respSelActive = false
 }
 
@@ -87,7 +87,7 @@ func (m *model) copyRespSelection() {
 // copy button at the top of the response pane.
 func (m *model) copyAllResponse() {
 	if m.response == "" {
-		m.status = "Нет ответа для копирования"
+		m.status = i18n.T("err.noResponse")
 		return
 	}
 	text := m.response
@@ -95,10 +95,10 @@ func (m *model) copyAllResponse() {
 		text = string(m.lastBody)
 	}
 	if err := writeClipboardSafe(text); err != nil {
-		m.status = "Не удалось копировать: " + err.Error()
+		m.status = i18n.T("err.copyGeneric", err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Ответ скопирован (%d симв.)", len([]rune(text)))
+	m.status = i18n.T("status.respCopied", len([]rune(text)))
 	m.respSelActive = false
 }
 
@@ -114,11 +114,11 @@ func (m *model) cutSelection() {
 	}
 	m.markDirty()
 	if err := clipboard.WriteAll(sel); err != nil {
-		m.status = "Не удалось вырезать: " + err.Error()
+		m.status = i18n.T("err.cut", err.Error())
 		return
 	}
 	m.selActive = false
-	m.status = "Вырезано"
+	m.status = i18n.T("status.cut")
 }
 
 // deleteLine removes the line under the cursor. If a selection is active, it is
@@ -131,14 +131,14 @@ func (m *model) deleteLine() {
 	m.selAnchorRow, m.selAnchorCol = m.ed.curRow, m.ed.curCol
 	m.ed.DeleteLine()
 	m.markDirty()
-	m.status = "Строка удалена"
+	m.status = i18n.T("status.lineDeleted")
 }
 
 // pasteClipboard inserts clipboard contents at the cursor.
 func (m *model) pasteClipboard() {
 	text, err := clipboard.ReadAll()
 	if err != nil || text == "" {
-		m.status = "Буфер обмена пуст"
+		m.status = i18n.T("err.clipboardEmpty")
 		return
 	}
 	m.pasteOrConvert(text)
@@ -168,7 +168,7 @@ func (m *model) pasteOrConvert(text string) {
 	if isCurlCommand(text) {
 		block, err := curl.ImportLine(strings.TrimSpace(text))
 		if err != nil {
-			m.status = "Не удалось конвертировать cURL: " + err.Error()
+			m.status = i18n.T("err.convertCurl", err.Error())
 			return
 		}
 		// Remember where the block will start so we can put the cursor back on
@@ -188,7 +188,7 @@ func (m *model) pasteOrConvert(text string) {
 		}
 		m.ed.clampCol()
 		m.ed.EnsureVisible()
-		m.status = "cURL конвертирован в запрос"
+		m.status = i18n.T("status.curlConverted")
 		return
 	}
 
@@ -209,7 +209,7 @@ func (m *model) pasteOrConvert(text string) {
 		}
 		m.ed.EnsureVisible()
 	}
-	m.status = "Вставлено"
+	m.status = i18n.T("status.pasted")
 }
 
 // insertText inserts a block of text at the current cursor (newline-separated).
