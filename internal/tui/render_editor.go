@@ -65,6 +65,15 @@ func (m *model) menuReserve() int {
 	return len(m.actionMenu.items)
 }
 
+// popupRows returns the total number of editor content rows the currently open
+// popup (request action menu or navigation) consumes, or 0 when none is open.
+func (m *model) popupRows() int {
+	if m.nav != nil {
+		return m.navReserve()
+	}
+	return m.menuReserve()
+}
+
 // effEditorVisible returns the number of source rows to render in the editor
 // pane when the request action popup is open. The popup is drawn inline under
 // its anchor request line, so it trades place with source rows: the source
@@ -74,7 +83,7 @@ func (m *model) menuReserve() int {
 // header would be pushed off-screen.
 func (m *model) effEditorVisible() int {
 	visible := m.ed.height
-	if menuH := m.menuReserve(); menuH > 0 {
+	if menuH := m.popupRows(); menuH > 0 {
 		eff := m.height - 4 - menuH
 		if eff > visible {
 			eff = visible
@@ -98,6 +107,20 @@ func (m *model) renderEditor(width int) string {
 		end = len(lines)
 	}
 	var sb strings.Builder
+	// Visible content width: pane width minus borders (2) minus gutter (5).
+	contentW := width - 2 - 5
+	if contentW < 8 {
+		contentW = 8
+	}
+	// Navigation popup (Ctrl+G): a floating block pinned to the top of the
+	// editor content area. It trades place with the source rows via the reduced
+	// effEditorVisible so the pane never grows.
+	if m.nav != nil {
+		for _, nl := range m.navLines(contentW) {
+			sb.WriteString(nl)
+			sb.WriteString("\n")
+		}
+	}
 	for i := scroll; i < end; i++ {
 		// run icon column
 		icon := " "

@@ -75,6 +75,8 @@ type model struct {
 	saveAs *textinput.Model
 	// action popup shown on Enter over a request line (nil when inactive)
 	actionMenu *actionMenu
+	// navigation popup shown on Ctrl+G (nil when closed)
+	nav *navMenu
 	// dirty tracks whether the editor has unsaved changes since the last save.
 	dirty bool
 	// autosaveDeadline is the time until which edits keep postponing the save.
@@ -97,6 +99,10 @@ type model struct {
 	// the periodic autosave loop to avoid rewriting appsettings.yml on every
 	// tick when nothing moved.
 	lastPersisted editorPos
+	// helpVisible forces the hotkey reference to show in the right pane (F1),
+	// regardless of whether a response is present. It is cleared automatically
+	// by the next response so the result pane is not covered.
+	helpVisible bool
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).
@@ -478,6 +484,9 @@ func (m *model) runRequest() tea.Cmd {
 // applyResponse renders the response into the right pane.
 func (m model) applyResponse(msg runResultMsg) tea.Model {
 	m.state = stateIdle
+	// A fresh response always brings the result pane back: never let the F1
+	// help cover the output of a request.
+	m.helpVisible = false
 	res := msg.res
 	if res.Err != nil {
 		// Network errors (connection refused, DNS, timeout, TLS, etc.) are not

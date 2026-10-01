@@ -38,6 +38,30 @@ var catalogs = map[string]map[string]string{
 		"lang.ru":             "Русский",
 		"lang.en":             "Английский",
 
+		// help panel (right pane, shown while there is no response yet)
+		"help.title":    "Горячие клавиши",
+		"help.summary":  "Компактная справка по сочетаниям. Выполните запрос, чтобы скрыть.",
+		"help.run":      "Выполнить запрос под курсором",
+		"help.runMenu":  "Действия над запросом (попап)",
+		"help.copyCurl": "Copy as cURL",
+		"help.nav":      "Навигация по запросам (список + фильтр)",
+		"help.undo":     "Отменить",
+		"help.redo":     "Повторить",
+		"help.delLine":  "Удалить строку",
+		"help.copy":     "Копировать",
+		"help.cut":      "Вырезать",
+		"help.paste":    "Вставить (cURL конвертируется)",
+		"help.save":     "Сохранить / сохранить как",
+		"help.new":      "Новый файл",
+		"help.pane":     "Переключить панель",
+		"help.lang":     "Переключить язык (ru ⇄ en)",
+		"help.debug":    "Дамп состояния в debug.txt",
+		"help.words":    "Перемещение по словам",
+		"help.home":     "Иконка запуска (▶) / курсор",
+		"help.hscroll":  "Горизонтальный скролл",
+		"help.panel":    "Показать/скрыть эту справку",
+		"help.quit":     "Выход",
+
 		// render.go
 		"loading.editor": "Загрузка редактора...",
 		"saveAs.prompt":  "Сохранить как: %s",
@@ -50,7 +74,6 @@ var catalogs = map[string]map[string]string{
 
 		// render_resp.go
 		"status.executing": "Выполняется...",
-		"resp.empty":       "Выполните запрос: Ctrl+Enter\nПереключение панелей: Tab",
 		"resp.copyButton":  "⧉  Скопировать ответ",
 
 		// files.go
@@ -90,6 +113,12 @@ var catalogs = map[string]map[string]string{
 		"status.pasted":        "Вставлено",
 		"status.curlCopied":    "cURL скопирован",
 		"status.curlConverted": "cURL конвертирован в запрос",
+
+		// navigation.go
+		"nav.title":      "Перейти к запросу: %s",
+		"nav.jumped":     "Запрос «%s» (строка %d)",
+		"nav.noRequests": "В файле нет запросов",
+		"nav.noMatches":  "Нет совпадений",
 	},
 	"en": {
 		// app.go statuses & messages
@@ -108,6 +137,30 @@ var catalogs = map[string]map[string]string{
 		"lang.ru":             "Russian",
 		"lang.en":             "English",
 
+		// help panel (right pane, shown while there is no response yet)
+		"help.title":    "Hotkeys",
+		"help.summary":  "Quick key reference. Run a request to hide it.",
+		"help.run":      "Run request under cursor",
+		"help.runMenu":  "Request actions (popup)",
+		"help.copyCurl": "Copy as cURL",
+		"help.nav":      "Navigate requests (list + filter)",
+		"help.undo":     "Undo",
+		"help.redo":     "Redo",
+		"help.delLine":  "Delete line",
+		"help.copy":     "Copy",
+		"help.cut":      "Cut",
+		"help.paste":    "Paste (cURL converts)",
+		"help.save":     "Save / Save as",
+		"help.new":      "New file",
+		"help.pane":     "Switch pane",
+		"help.lang":     "Switch language (ru ⇄ en)",
+		"help.debug":    "Dump UI state to debug.txt",
+		"help.words":    "Move by word",
+		"help.home":     "Run icon (▶) / cursor",
+		"help.hscroll":  "Horizontal scroll",
+		"help.panel":    "Show/hide this help",
+		"help.quit":     "Quit",
+
 		// render.go
 		"loading.editor": "Loading editor...",
 		"saveAs.prompt":  "Save as: %s",
@@ -120,7 +173,6 @@ var catalogs = map[string]map[string]string{
 
 		// render_resp.go
 		"status.executing": "Running...",
-		"resp.empty":       "Run a request: Ctrl+Enter\nSwitch panes: Tab",
 		"resp.copyButton":  "⧉  Copy response",
 
 		// files.go
@@ -160,6 +212,12 @@ var catalogs = map[string]map[string]string{
 		"status.pasted":        "Pasted",
 		"status.curlCopied":    "cURL copied",
 		"status.curlConverted": "cURL converted to request",
+
+		// navigation.go
+		"nav.title":      "Go to request: %s",
+		"nav.jumped":     "Request «%s» (line %d)",
+		"nav.noRequests": "No requests in file",
+		"nav.noMatches":  "No matches",
 	},
 }
 

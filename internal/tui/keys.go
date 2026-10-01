@@ -119,6 +119,11 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Navigation popup (Ctrl+G): while open it consumes all keys.
+	if m.nav != nil {
+		return m, m.handleNavKey(msg)
+	}
+
 	// Ignore unrecognised Ctrl/Alt combinations. On Windows a bare Ctrl (or a
 	// modifier read alone) can arrive as e.g. "ctrl+@" with no text payload;
 	// without this guard it would fall through to handleEditKey and delete the
@@ -167,6 +172,17 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "ctrl+l":
 		m.toggleLanguage()
+		return m, nil
+	case "ctrl+g":
+		// Navigation by request name/id works from any pane and returns focus
+		// to the editor on jump.
+		m.beginNav()
+		return m, nil
+	case "f1":
+		// Toggle the hotkey reference in the right pane. If an explicit help is
+		// currently shown, F1 dismisses it; otherwise show it.
+		m.helpVisible = !m.helpVisible
+		m.active = paneResp
 		return m, nil
 	case "f10":
 		return m, m.quitWithSave()
@@ -284,7 +300,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func knownModifierKey(key string) bool {
 	switch key {
 	case "ctrl+c", "ctrl+x", "ctrl+v", "ctrl+z", "ctrl+shift+z",
-		"ctrl+d", "ctrl+k", "ctrl+l", "ctrl+enter", "ctrl+r", "ctrl+y",
+		"ctrl+d", "ctrl+k", "ctrl+l", "ctrl+g", "ctrl+enter", "ctrl+r", "ctrl+y",
 		"ctrl+s", "ctrl+n", "ctrl+a",
 		"ctrl+left", "ctrl+right", "ctrl+home", "ctrl+end",
 		"alt+left", "alt+right", "alt+home":

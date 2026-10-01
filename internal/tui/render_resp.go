@@ -11,8 +11,11 @@ func (m *model) renderResponse(width, height int) string {
 	if m.state == stateRunning {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render(i18n.T("status.executing"))
 	}
-	if m.response == "" {
-		return "\n  " + strings.ReplaceAll(i18n.T("resp.empty"), "\n", "\n  ")
+	if m.response == "" || m.helpVisible {
+		// Show the hotkey reference inside the right pane: automatically when
+		// there is no response yet, or manually toggled with F1.
+		lines := helpPanelLines(width-2, height-2)
+		return strings.Join(lines, "\n")
 	}
 	lines := respBodyLines(m)
 	contentW := width - 2 // left border + scrollbar column

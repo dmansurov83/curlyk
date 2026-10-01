@@ -79,3 +79,40 @@ POST http://a/2
 		t.Errorf("line 5 should map to req1, got %+v", got)
 	}
 }
+
+// TestNameAnnotationBeforeRequest verifies the JetBrains convention where @name
+// appears above the request line: the annotation attaches to the next request
+// and does not leak across a "###" separator.
+func TestNameAnnotationBeforeRequest(t *testing.T) {
+	src := `### get
+@name fetch todos
+GET http://a/1
+
+@name orphan
+### other
+POST http://a/2
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 2 {
+		t.Fatalf("want 2 requests, got %d", len(reqs))
+	}
+	if reqs[0].Name != "fetch todos" {
+		t.Errorf("req0 name=%q want 'fetch todos'", reqs[0].Name)
+	}
+	if reqs[1].Name != "" {
+		t.Errorf("req1 name=%q want '' (orphan @name before separator must not attach)", reqs[1].Name)
+	}
+}
+
+// TestNameAnnotationAfterRequest verifies @name after the request line still
+// attaches (original placement).
+func TestNameAnnotationAfterRequest(t *testing.T) {
+	src := "GET http://a/1\n@name inline\n"
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	if reqs[0].Name != "inline" {
+		t.Errorf("req0 name=%q want 'inline'", reqs[0].Name)
+	}
+}

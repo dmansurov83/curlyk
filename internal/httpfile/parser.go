@@ -14,11 +14,15 @@ const (
 func ParseFile(src string) []Request {
 	var reqs []Request
 	var cur Request
-	mode := modeNone
+	mode := parseMode(modeNone)
 	var bodyLines []string
 	seenRequest := false
 	bodyStartLine := 0
 	bodyEndLine := 0
+	// pendingName is an @name annotation seen before its request line
+	// (the JetBrains convention places @name above the request line). It is
+	// attached to the next request line and cleared on "###" separators.
+	pendingName := ""
 
 	flush := func() {
 		if seenRequest {
@@ -35,6 +39,7 @@ func ParseFile(src string) []Request {
 		seenRequest = false
 		bodyStartLine = 0
 		bodyEndLine = 0
+		pendingName = ""
 	}
 
 	lines := strings.Split(src, "\n")
@@ -51,22 +56,31 @@ func ParseFile(src string) []Request {
 
 		// Request line.
 		if m, urlStr, _, ok := parseRequestLine(line); ok {
+			// Capture a pending @name before flush clears it.
+			attachName := pendingName
 			flush()
 			cur.Method = m
 			cur.URL = urlStr
 			cur.Line = lineNo
+			// Attach an @name written above the request line.
+			if attachName != "" {
+				cur.Name = attachName
+			}
 			seenRequest = true
 			mode = modeHeaders
 			continue
 		}
 
-		// @name annotation.
+		// @name annotation. Accepted both after a request line (as a header-mode
+		// annotation) and before the next one (anonymous-request annotation).
 		if strings.HasPrefix(trim, "@name") {
-			if !seenRequest || mode == modeBody {
-				// annotation before a request: may attach later; keep simple: skip
-				// (JetBrains puts @name before the request line)
+			name := strings.TrimSpace(trim[len("@name"):])
+			if seenRequest && mode != modeBody {
+				cur.Name = name
+			} else {
+				// Before a request line: defer to the next request line.
+				pendingName = name
 			}
-			cur.Name = strings.TrimSpace(trim[len("@name"):])
 			continue
 		}
 
