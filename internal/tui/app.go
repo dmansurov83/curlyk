@@ -992,7 +992,12 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	hdr.WriteString(res.Request.Proto + " " + res.Status + "\n")
 	hdr.WriteString("Время: " + res.Duration.Round(time.Millisecond).String() + "\n")
 	res.Response.Header.Write(&hdr)
-	b.WriteString(hdr.String())
+	// http.Header.Write terminates each line with CRLF; the trailing \r is a
+	// literal carriage return that in a terminal rewinds the cursor to column 0,
+	// so the padded tail of each header row would overwrite the pane on the left.
+	// Normalize to \n so header rows render as plain lines.
+	hdrStr := strings.ReplaceAll(hdr.String(), "\r\n", "\n")
+	b.WriteString(hdrStr)
 	b.WriteString("\n")
 	if len(msg.body) > 0 {
 		b.WriteString(formatBody(msg.body))
@@ -1000,7 +1005,7 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	if res.Response != nil {
 		m.status = fmt.Sprintf("Ответ %d", res.Response.StatusCode)
 	}
-	return m.setResponse(b.String(), hdr.String(), msg.body)
+	return m.setResponse(b.String(), hdrStr, msg.body)
 }
 
 // respContentWidth returns the display width of the response pane body in
@@ -1008,9 +1013,9 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 func (m *model) respContentWidth() int {
 	fw := m.filesWidth()
 	mid := (m.width - fw) / 2
-	respW := m.width - fw - mid - 1
+	respW := m.width - fw - mid - 6
 	if respW < 10 {
-		respW = m.width - fw - mid
+		respW = 10
 	}
 	w := respW - 2 // left border + scrollbar column
 	if w < 8 {

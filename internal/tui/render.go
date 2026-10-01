@@ -48,9 +48,13 @@ func (m model) View() string {
 
 	filesView := m.renderFilesPanel(fw, respH)
 	edView := m.renderEditor(mid)
-	respW := m.width - fw - mid - 1
+	// Each pane's lipgloss border adds 2 cells (left + right) on top of its
+	// interior Width, and the files + editor panes already occupy their full
+	// bordered width. The response pane gets the remaining width so the three
+	// joined panes fit exactly in m.width: fw + mid + respW + 6 == m.width.
+	respW := m.width - fw - mid - 6
 	if respW < 10 {
-		respW = m.width - fw - mid
+		respW = 10
 	}
 	respView := m.renderResponse(respW, respH)
 
@@ -164,11 +168,42 @@ func borderColor(active bool) string {
 	return "240"
 }
 
+// menuReserve returns the number of editor content rows consumed by the open
+// request action popup (one per menu item), or 0 when the popup is closed.
+func (m *model) menuReserve() int {
+	if m.actionMenu == nil {
+		return 0
+	}
+	return len(m.actionMenu.items)
+}
+
+// effEditorVisible returns the number of source rows to render in the editor
+// pane when the request action popup is open. The popup is drawn inline under
+// its anchor request line, so it trades place with source rows: the source
+// lines plus the popup must fit within the pane's content area (m.height-4
+// rows). Without this the editor box would grow taller than the sibling panes,
+// the whole frame would overrun the terminal height and the top file-name
+// header would be pushed off-screen.
+func (m *model) effEditorVisible() int {
+	visible := m.ed.height
+	if menuH := m.menuReserve(); menuH > 0 {
+		eff := m.height - 4 - menuH
+		if eff > visible {
+			eff = visible
+		}
+		if eff < 0 {
+			eff = 0
+		}
+		visible = eff
+	}
+	return visible
+}
+
 func (m *model) renderEditor(width int) string {
 	m.ed.sanitize()
 	lines := m.ed.Lines()
 	toks := httpfile.Lex(m.ed.Text())
-	visible := m.ed.height
+	visible := m.effEditorVisible()
 	scroll := m.ed.scroll
 	end := scroll + visible
 	if end > len(lines) {

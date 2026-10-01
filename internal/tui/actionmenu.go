@@ -49,18 +49,21 @@ func (m *model) beginActionMenu() tea.Cmd {
 	if !(m.ed.onIcon || isRequestLine(m.ed.Lines(), m.ed.curRow)) {
 		return nil
 	}
-	// Ensure the request line and its popup fit within the visible window:
-	// scroll up if the anchor is too close to the bottom edge.
-	menuH := len(menuItems())
-	if anchor := m.ed.curRow; anchor >= m.ed.scroll+m.ed.height-menuH {
-		m.ed.scroll = anchor - (m.ed.height - menuH)
-		if m.ed.scroll < 0 {
-			m.ed.scroll = 0
-		}
-	}
 	m.actionMenu = &actionMenu{
 		anchorRow: m.ed.curRow,
 		items:     menuItems(),
+	}
+	// Keep the anchor request line and the whole popup inside the visible
+	// window. The popup is drawn inline below the anchor, so it consumes the
+	// same rows as the source would; reserve one editor row per menu item. If
+	// the anchor sits too close to the bottom edge, scroll up so that the last
+	// source row is the anchor line and the popup ends exactly at the bottom.
+	effVis := m.effEditorVisible()
+	if anchor := m.ed.curRow; anchor >= m.ed.scroll+effVis {
+		m.ed.scroll = anchor + 1 - effVis
+		if m.ed.scroll < 0 {
+			m.ed.scroll = 0
+		}
 	}
 	return nil
 }

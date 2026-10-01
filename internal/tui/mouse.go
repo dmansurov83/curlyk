@@ -25,8 +25,8 @@ func (m *model) layout() paneLayout {
 	mid := (m.width - fw) / 2
 	filesEnd := fw + 2 // files pane: interior fw + left/right borders
 	editorL := filesEnd
-	editorR := editorL + mid - 1
-	half := editorR + 1 // response pane left border
+	editorR := editorL + mid + 1 // editor interior mid + left/right borders
+	half := editorR + 1          // response pane left border
 	respR := m.width - 1
 	return paneLayout{
 		files:    fw,
