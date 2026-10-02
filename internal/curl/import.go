@@ -57,6 +57,33 @@ func ImportCommand(argv []string) (*Parsed, error) {
 			p.Method = "POST"
 		}
 	}
+	// appendData appends one -d chunk to the accumulated body. Like curl,
+	// multiple data chunks are joined with '&' (form semantics); a single
+	// chunk is used verbatim.
+	appendData := func(chunk string) {
+		if p.Data != "" {
+			p.Data += "&"
+		}
+		p.Data += chunk
+	}
+	// appendURLEncoded appends a --data-urlencode value: the content after the
+	// first '=' (or the whole value when there is no '=') is URL-encoded, with
+	// a %20 for spaces like curl does. name@file is kept as-is (the file
+	// content is not available here).
+	appendURLEncoded := func(v string) {
+		chunk := v
+		if eq := strings.IndexByte(v, '='); eq >= 0 {
+			name, val := v[:eq], v[eq+1:]
+			if strings.HasPrefix(val, "@") {
+				chunk = v // file reference: leave untouched
+			} else {
+				chunk = name + "=" + curlEscape(val)
+			}
+		} else {
+			chunk = curlEscape(v)
+		}
+		appendData(chunk)
+	}
 
 	for hasMore() {
 		arg := next()
@@ -82,12 +109,17 @@ func ImportCommand(argv []string) (*Parsed, error) {
 			}
 		case arg == "-d" || arg == "--data" || arg == "--data-raw":
 			if v, ok := optionVal(arg); ok {
-				p.Data += v
+				appendData(v)
 				dataPOST()
 			}
-		case arg == "--data-binary" || arg == "--data-urlencode":
+		case arg == "--data-binary":
 			if v, ok := optionVal(arg); ok {
-				p.Data += v
+				appendData(v)
+				dataPOST()
+			}
+		case arg == "--data-urlencode":
+			if v, ok := optionVal(arg); ok {
+				appendURLEncoded(v)
 				dataPOST()
 			}
 		case arg == "-u" || arg == "--user":
@@ -117,7 +149,7 @@ func ImportCommand(argv []string) (*Parsed, error) {
 		case strings.HasPrefix(arg, "-H") && len(arg) > 2:
 			addHeader(p, arg[2:])
 		case strings.HasPrefix(arg, "-d") && len(arg) > 2:
-			p.Data += arg[2:]
+			appendData(arg[2:])
 			dataPOST()
 		case strings.HasPrefix(arg, "-u") && len(arg) > 2:
 			p.User = arg[2:]
@@ -184,4 +216,29 @@ func addFormField(p *Parsed, s string) {
 	}
 	f.Value = rest
 	p.FormFields = append(p.FormFields, f)
+}
+
+// curlEscape percent-encodes a string the way curl's --data-urlencode does:
+// application/x-www-form-urlencoded rules, but with a space encoded as %20
+// (curl uses %20, not '+'). Unreserved characters are kept verbatim so
+// already-encoded JWT fragments like "a.b_c-d" stay readable.
+func curlEscape(s string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~' {
+			b.WriteByte(c)
+			continue
+		}
+		if c == ' ' {
+			b.WriteString("%20")
+			continue
+		}
+		b.WriteByte('%')
+		b.WriteByte(hex[c>>4])
+		b.WriteByte(hex[c&0xf])
+	}
+	return b.String()
 }

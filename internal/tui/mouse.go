@@ -236,7 +236,10 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 			// if mouseDragged, keep the drag selection active
 		}
 	case msg.Button == tea.MouseButtonWheelUp && msg.Action == tea.MouseActionPress:
-		if m.paneAtX(msg.X) == paneResp {
+		if m.paneAtX(msg.X) == paneResp && m.helpShown() {
+			m.helpScroll -= 3
+			m.clampHelpScroll()
+		} else if m.paneAtX(msg.X) == paneResp {
 			m.scrollBy(-3)
 		} else {
 			m.ed.scroll--
@@ -246,7 +249,10 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 			m.clampEditorScroll()
 		}
 	case msg.Button == tea.MouseButtonWheelDown && msg.Action == tea.MouseActionPress:
-		if m.paneAtX(msg.X) == paneResp {
+		if m.paneAtX(msg.X) == paneResp && m.helpShown() {
+			m.helpScroll += 3
+			m.clampHelpScroll()
+		} else if m.paneAtX(msg.X) == paneResp {
 			m.scrollBy(3)
 		} else {
 			m.ed.scroll++

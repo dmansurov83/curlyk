@@ -114,6 +114,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Form editor popup: while open it consumes all keys.
+	if m.form != nil {
+		if msg.String() == "ctrl+enter" {
+			m.commitForm()
+		}
+		m.handleFormKey(msg)
+		return m, nil
+	}
+
 	// Request action popup: while open it consumes all keys.
 	if cmd, handled := m.handleMenuKey(msg); handled {
 		return m, cmd
@@ -182,6 +191,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Toggle the hotkey reference in the right pane. If an explicit help is
 		// currently shown, F1 dismisses it; otherwise show it.
 		m.helpVisible = !m.helpVisible
+		if m.helpVisible {
+			m.helpScroll = 0
+		}
 		m.active = paneResp
 		return m, nil
 	case "f10":
@@ -269,18 +281,35 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selActive = false
 			m.ed.MoveCursor(msg.String())
 			m.ed.EnsureVisible()
+		} else if m.helpShown() {
+			// In the help reference, arrows move the scroll window instead of
+			// the (nonexistent) response selection.
+			switch msg.String() {
+			case "up":
+				m.helpScroll--
+				m.clampHelpScroll()
+			case "down":
+				m.helpScroll++
+				m.clampHelpScroll()
+			}
 		} else {
 			m.respMoveCursor(msg.String())
 		}
 	case "pageup", "pgup":
-		if m.active == paneResp {
+		if m.active == paneResp && m.helpShown() {
+			m.helpScroll -= 10
+			m.clampHelpScroll()
+		} else if m.active == paneResp {
 			m.scrollBy(-10)
 		} else if m.active == paneEdit {
 			m.ed.scroll -= m.ed.height
 			m.clampEditorScroll()
 		}
 	case "pagedown", "pgdown":
-		if m.active == paneResp {
+		if m.active == paneResp && m.helpShown() {
+			m.helpScroll += 10
+			m.clampHelpScroll()
+		} else if m.active == paneResp {
 			m.scrollBy(10)
 		} else if m.active == paneEdit {
 			m.ed.scroll += m.ed.height

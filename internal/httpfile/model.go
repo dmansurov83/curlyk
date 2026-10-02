@@ -33,6 +33,11 @@ type Request struct {
 	// declared after the request line and before any header/body.
 	Options []Option
 
+	// Vars maps file-level variable names to their values, collected from
+	// "@var name = value" lines across the whole .http file. Substitution of
+	// {{name}} / {{$fn}} placeholders happens against this map.
+	Vars map[string]string
+
 	// Body is the raw request body ("" if none).
 	Body string
 

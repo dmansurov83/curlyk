@@ -34,6 +34,7 @@ var catalogs = map[string]map[string]string{
 		"resp.duration":       "Время: %s",
 		"resp.statusCode":     "Ответ %d",
 		"err.option":          "Ошибка опции запроса: %s",
+		"err.variable":        "Не определена переменная: %s",
 		"err.startup":         "Ошибка запуска: %s",
 		"status.lang":         "Язык: %s",
 		"lang.ru":             "Русский",
@@ -62,6 +63,12 @@ var catalogs = map[string]map[string]string{
 		"help.hscroll":  "Горизонтальный скролл",
 		"help.panel":    "Показать/скрыть эту справку",
 		"help.quit":     "Выход",
+		"help.varTitle": "Переменные",
+		"help.varHint":  "Подставляются при запуске в URL, заголовках и теле",
+		"help.varDecl":  "@var имя = значение",
+		"help.varUUID":  "{{$random.uuid}} — случайный UUID",
+		"help.varInt":   "{{$random.int}} — случайное число",
+		"help.varTime":  "{{$timestamp}} / {{$isoTimestamp}} — время",
 
 		// render.go
 		"loading.editor": "Загрузка редактора...",
@@ -90,11 +97,16 @@ var catalogs = map[string]map[string]string{
 		"menu.run":             "▶ Выполнить",
 		"menu.copyCurl":        "⧉ Копировать как cURL",
 		"menu.formatJson":      "{} Форматировать JSON",
+		"menu.formBody":        "◇ Тело как ключ=значение (&)",
 		"err.noBodyFormat":     "Нет тела запроса для форматирования",
 		"err.notJson":          "Тело запроса не является валидным JSON",
 		"err.formatJson":       "Ошибка форматирования JSON: %s",
 		"err.bodyRange":        "Не удалось определить строки тела запроса",
 		"status.jsonFormatted": "JSON тела отформатирован",
+
+		// formedit.go
+		"form.title": "Тело как key=value (x-www-form-urlencoded)",
+		"form.hint":  "Tab — ячейка, Enter — следующая строка/готово, Esc — отмена, ^D — удалить строку",
 
 		// clipboard.go
 		"err.noSelection":      "Нет выделения для копирования",
@@ -135,6 +147,7 @@ var catalogs = map[string]map[string]string{
 		"resp.duration":       "Time: %s",
 		"resp.statusCode":     "Response %d",
 		"err.option":          "Request option error: %s",
+		"err.variable":        "Undefined variable: %s",
 		"err.startup":         "Startup error: %s",
 		"status.lang":         "Language: %s",
 		"lang.ru":             "Russian",
@@ -163,6 +176,12 @@ var catalogs = map[string]map[string]string{
 		"help.hscroll":  "Horizontal scroll",
 		"help.panel":    "Show/hide this help",
 		"help.quit":     "Quit",
+		"help.varTitle": "Variables",
+		"help.varHint":  "Substituted on run in URL, headers and body",
+		"help.varDecl":  "@var name = value",
+		"help.varUUID":  "{{$random.uuid}} — random UUID",
+		"help.varInt":   "{{$random.int}} — random number",
+		"help.varTime":  "{{$timestamp}} / {{$isoTimestamp}} — time",
 
 		// render.go
 		"loading.editor": "Loading editor...",
@@ -191,11 +210,16 @@ var catalogs = map[string]map[string]string{
 		"menu.run":             "▶ Run",
 		"menu.copyCurl":        "⧉ Copy as cURL",
 		"menu.formatJson":      "{} Format JSON",
+		"menu.formBody":        "◇ Body as key=value (&)",
 		"err.noBodyFormat":     "No request body to format",
 		"err.notJson":          "Request body is not valid JSON",
 		"err.formatJson":       "Error formatting JSON: %s",
 		"err.bodyRange":        "Could not determine request body lines",
 		"status.jsonFormatted": "JSON body formatted",
+
+		// formedit.go
+		"form.title": "Body as key=value (x-www-form-urlencoded)",
+		"form.hint":  "Tab — cell, Enter — next row/done, Esc — cancel, ^D — delete row",
 
 		// clipboard.go
 		"err.noSelection":      "No selection to copy",

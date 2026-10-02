@@ -89,6 +89,56 @@ func TestToHTTPString(t *testing.T) {
 	_ = wantSub
 }
 
+func TestToHTTPStringForm(t *testing.T) {
+	argv, _ := ShellSplit(`curl -X POST https://id-test.example.com/connect/token -H "Authorization: Basic YWJj" -d 'grant_type=application&scope=openid offline_access&token=abc&user_Id=1329725'`)
+	p, err := ImportCommand(argv[1:]) // drop "curl"
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := ToHTTPString(p)
+	t.Logf("out:\n%s", out)
+	if !contains(out, "Content-Type: application/x-www-form-urlencoded") {
+		t.Errorf("expected form content-type, got:\n%s", out)
+	}
+	if !contains(out, "grant_type=application&scope=openid offline_access&token=abc&user_Id=1329725") {
+		t.Errorf("body mangled:\n%s", out)
+	}
+}
+
+func TestToHTTPStringFormKeepsExplicitContentType(t *testing.T) {
+	argv, _ := ShellSplit(`curl -X POST https://x/token -H "Content-Type: text/plain" -d 'a=1&b=2'`)
+	p, err := ImportCommand(argv[1:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := ToHTTPString(p)
+	if !contains(out, "Content-Type: text/plain") {
+		t.Errorf("explicit content-type dropped:\n%s", out)
+	}
+	if contains(out, "application/x-www-form-urlencoded") {
+		t.Errorf("inferred type should not override explicit one:\n%s", out)
+	}
+}
+
+func TestLooksLikeForm(t *testing.T) {
+	cases := []struct {
+		body string
+		want bool
+	}{
+		{`grant_type=application&scope=x&token=y`, true},
+		{"a=1&b=2", true},
+		{"a=1", false}, // single pair, no '&'
+		{`{"a":1}`, false},
+		{"grant_type=application", false},
+		{"a=1\nb=2", false}, // multi-line
+	}
+	for i, c := range cases {
+		if got := looksLikeForm(c.body); got != c.want {
+			t.Errorf("case %d looksLikeForm(%q)=%v want %v", i, c.body, got, c.want)
+		}
+	}
+}
+
 func contains(s, sub string) bool {
 	return len(sub) == 0 || (len(sub) <= len(s) && indexOf(s, sub) >= 0)
 }

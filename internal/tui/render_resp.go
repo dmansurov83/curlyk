@@ -13,8 +13,10 @@ func (m *model) renderResponse(width, height int) string {
 	}
 	if m.response == "" || m.helpVisible {
 		// Show the hotkey reference inside the right pane: automatically when
-		// there is no response yet, or manually toggled with F1.
-		lines := helpPanelLines(width-2, height-2)
+		// there is no response yet, or manually toggled with F1. The pane's
+		// interior height is exactly `height` rows, so the help fills it fully
+		// (padded to a full frame) to avoid trailing blank rows.
+		lines := helpPanelLines(width-2, height, m.helpScroll)
 		return strings.Join(lines, "\n")
 	}
 	lines := respBodyLines(m)

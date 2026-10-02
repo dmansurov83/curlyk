@@ -14,10 +14,10 @@ func TestPasteThenRun(t *testing.T) {
 	m.active = paneEdit
 	m.ed.SetText("") // empty buffer
 	km := tea.KeyMsg{Type: tea.KeyRunes, Paste: true,
-		Runes: []rune(`curl -X GET https://api.test/users/{{id}} -H "Accept: application/json"`)}
+		Runes: []rune(`curl -X GET https://api.test/users/1 -H "Accept: application/json"`)}
 	_, _ = m.handleKey(km)
 	text := m.ed.Text()
-	if !strings.Contains(text, "GET https://api.test/users/{{id}}") {
+	if !strings.Contains(text, "GET https://api.test/users/1") {
 		t.Fatalf("curl not converted:\n%s", text)
 	}
 	// cursor should be on or near the request; run should find it

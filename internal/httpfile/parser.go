@@ -23,6 +23,9 @@ func ParseFile(src string) []Request {
 	// (the JetBrains convention places @name above the request line). It is
 	// attached to the next request line and cleared on "###" separators.
 	pendingName := ""
+	// fileVars collects "@var name = value" declarations across the whole file.
+	// Variables are file-scoped and available to every request block.
+	fileVars := map[string]string{}
 
 	flush := func() {
 		if seenRequest {
@@ -31,6 +34,7 @@ func ParseFile(src string) []Request {
 				cur.BodyStart = bodyStartLine
 				cur.BodyEnd = bodyEndLine
 			}
+			cur.Vars = fileVars
 			reqs = append(reqs, cur)
 		}
 		cur = Request{}
@@ -80,6 +84,17 @@ func ParseFile(src string) []Request {
 			} else {
 				// Before a request line: defer to the next request line.
 				pendingName = name
+			}
+			continue
+		}
+
+		// @var declaration. File-scoped: applies to any request block, wherever
+		// it appears. Skipped in body mode so a JSON body containing
+		// "@var ..." (e.g. "@var": 1) is not misread as a variable.
+		if strings.HasPrefix(trim, "@var") {
+			key, val := parseVarLine(trim)
+			if key != "" {
+				fileVars[key] = val
 			}
 			continue
 		}
@@ -139,6 +154,38 @@ func ParseFile(src string) []Request {
 	flush()
 
 	return reqs
+}
+
+// parseVarLine parses a "@var name = value" declaration line. The "@var"
+// prefix is already trimmed by the caller. It returns the variable name and
+// its value. A missing value is allowed (empty string). Names follow the same
+// rules as option names (letters, digits, hyphens). Returns ("", "") when the
+// line carries no valid name.
+func parseVarLine(trim string) (string, string) {
+	rest := strings.TrimSpace(trim[len("@var"):])
+	if rest == "" {
+		return "", ""
+	}
+	name := rest
+	val := ""
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == '=' {
+			name = strings.TrimSpace(rest[:i])
+			val = strings.TrimSpace(rest[i+1:])
+			break
+		}
+	}
+	if name == "" {
+		return "", ""
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		ok := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+		if !ok {
+			return "", ""
+		}
+	}
+	return name, val
 }
 
 // parseOptionLine parses a "@name value" processing-option line. It returns the

@@ -75,6 +75,9 @@ type model struct {
 	actionMenu *actionMenu
 	// navigation popup shown on Ctrl+G (nil when closed)
 	nav *navMenu
+	// form editor popup (key=value body editor) opened from the actions menu
+	// (nil when closed)
+	form *formEditor
 	// dirty tracks whether the editor has unsaved changes since the last save.
 	dirty bool
 	// autosaveDeadline is the time until which edits keep postponing the save.
@@ -101,6 +104,10 @@ type model struct {
 	// regardless of whether a response is present. It is cleared automatically
 	// by the next response so the result pane is not covered.
 	helpVisible bool
+	// helpScroll is the vertical scroll offset of the help reference panel,
+	// used once the reference is taller than the pane. It lets the variables
+	// section scroll into view on short windows.
+	helpScroll int
 	// hover tracks the mouse cursor position for hover highlighting in popups
 	// (action menu, navigation), the files panel and the copy button. Only
 	// meaningful while mouse motion events are flowing; reset to -1 on release
@@ -358,6 +365,7 @@ func isRequestLine(lines []string, row int) bool {
 func (m *model) dumpDebug() {
 	var b strings.Builder
 	lines := m.ed.Lines()
+	req := httpfile.GetRequestAtLine(httpfile.ParseFile(m.ed.Text()), m.ed.curRow+1)
 	b.WriteString("== HTTP Tool debug dump ==\n")
 	b.WriteString(fmt.Sprintf("time:         %s\n", time.Now().Format("15:04:05")))
 	b.WriteString(fmt.Sprintf("width:        %d\n", m.width))
@@ -375,6 +383,15 @@ func (m *model) dumpDebug() {
 	b.WriteString(fmt.Sprintf("height:       %d (visible lines)\n", m.ed.height))
 	b.WriteString(fmt.Sprintf("width:        %d\n", m.ed.width))
 	b.WriteString(fmt.Sprintf("lineCount:    %d\n", len(lines)))
+	if req != nil {
+		b.WriteString(fmt.Sprintf("varCount:     %d\n", len(req.Vars)))
+		b.WriteString("-- vars (name : value) --\n")
+		for name, val := range req.Vars {
+			b.WriteString(fmt.Sprintf("%s : %s\n", name, val))
+		}
+	} else {
+		b.WriteString("varCount:     -\n")
+	}
 	b.WriteString("-- editor lines (index : content) --\n")
 	for i, ln := range lines {
 		b.WriteString(fmt.Sprintf("%3d : %s\n", i+1, ln))
@@ -473,6 +490,37 @@ func (m *model) runRequest() tea.Cmd {
 	}
 	m.state = stateRunning
 	m.status = i18n.T("status.running", req.Method, req.URL)
+	// Resolve {{name}} / {{$fn}} placeholders before building the request.
+	// An unresolved placeholder aborts the run with a clear message instead of
+	// silently sending a raw "{{x}}" on the wire.
+	sub, subErr := httpfile.Substitute(req.URL, req.Vars)
+	if subErr != nil {
+		m.state = stateIdle
+		m.status = i18n.T("err.variable", subErr.(*httpfile.SubstitutionError).First())
+		m.active = paneEdit
+		return nil
+	}
+	req.URL = sub
+	for i := range req.Headers {
+		hv, herr := httpfile.Substitute(req.Headers[i].Value, req.Vars)
+		if herr != nil {
+			m.state = stateIdle
+			m.status = i18n.T("err.variable", herr.(*httpfile.SubstitutionError).First())
+			m.active = paneEdit
+			return nil
+		}
+		req.Headers[i].Value = hv
+	}
+	if req.Body != "" {
+		bv, berr := httpfile.Substitute(req.Body, req.Vars)
+		if berr != nil {
+			m.state = stateIdle
+			m.status = i18n.T("err.variable", berr.(*httpfile.SubstitutionError).First())
+			m.active = paneEdit
+			return nil
+		}
+		req.Body = bv
+	}
 	opts, optErr := runner.ApplyOptions(*req, runner.Options{FollowRedirects: false})
 	if optErr != nil {
 		m.state = stateIdle

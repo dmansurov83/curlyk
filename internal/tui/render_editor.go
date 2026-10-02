@@ -70,8 +70,12 @@ func (m *model) menuReserve() int {
 }
 
 // popupRows returns the total number of editor content rows the currently open
-// popup (request action menu or navigation) consumes, or 0 when none is open.
+// popup (request action menu, form editor or navigation) consumes, or 0 when
+// none is open.
 func (m *model) popupRows() int {
+	if m.form != nil {
+		return m.formReserve()
+	}
 	if m.nav != nil {
 		return m.navReserve()
 	}
@@ -115,6 +119,15 @@ func (m *model) renderEditor(width int) string {
 	contentW := width - 2 - 5
 	if contentW < 8 {
 		contentW = 8
+	}
+	// Form editor popup (key=value body): a floating block pinned to the top of
+	// the editor content area. It trades place with the source rows via the
+	// reduced effEditorVisible so the pane never grows.
+	if m.form != nil {
+		for _, fl := range m.formLines(contentW) {
+			sb.WriteString(fl)
+			sb.WriteString("\n")
+		}
 	}
 	// Navigation popup (Ctrl+G): a floating block pinned to the top of the
 	// editor content area. It trades place with the source rows via the reduced
