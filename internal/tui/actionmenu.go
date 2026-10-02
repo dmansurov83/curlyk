@@ -32,6 +32,10 @@ type actionMenu struct {
 // menuSelStyle highlights the currently selected menu item.
 var menuSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("63"))
 
+// menuHoverStyle highlights a menu item under the mouse pointer (distinct from
+// the selected item).
+var menuHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("60"))
+
 // menuNormalStyle is the base item style.
 var menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("237"))
 
@@ -105,17 +109,34 @@ func (m *model) menuLines(contentW int) []string {
 	if menu == nil {
 		return nil
 	}
+	hover := m.menuHoverIndex()
 	out := make([]string, 0, len(menu.items))
 	for i, it := range menu.items {
 		line := padToWidth("  "+it.label, contentW)
-		if i == menu.sel {
+		switch {
+		case i == menu.sel:
 			line = menuSelStyle.Render(line)
-		} else {
+		case i == hover:
+			line = menuHoverStyle.Render(line)
+		default:
 			line = menuNormalStyle.Render(line)
 		}
 		out = append(out, line)
 	}
 	return out
+}
+
+// menuHoverIndex returns the menu item index currently under the mouse pointer,
+// or -1 when the pointer is outside the open popup.
+func (m *model) menuHoverIndex() int {
+	if m.actionMenu == nil || m.hoverY < 0 {
+		return -1
+	}
+	i := m.menuItemAt(m.hoverY)
+	if i < 0 || i >= len(m.actionMenu.items) {
+		return -1
+	}
+	return i
 }
 
 // menuAnchorRow returns the editor line the menu is attached to, or -1 when the

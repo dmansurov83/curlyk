@@ -103,6 +103,11 @@ type model struct {
 	// regardless of whether a response is present. It is cleared automatically
 	// by the next response so the result pane is not covered.
 	helpVisible bool
+	// hover tracks the mouse cursor position for hover highlighting in popups
+	// (action menu, navigation), the files panel and the copy button. Only
+	// meaningful while mouse motion events are flowing; reset to -1 on release
+	// or when the cursor leaves the pane.
+	hoverX, hoverY int
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).
@@ -115,6 +120,8 @@ func initialModel() model {
 		ed:     newEditor(exampleHTTP, 80, 20),
 		active: paneEdit,
 		status: i18n.T("ready.initial"),
+		hoverX: -1,
+		hoverY: -1,
 	}
 }
 
@@ -210,6 +217,8 @@ func New(args Args) tea.Model {
 		filePath:   openPath,
 		width:      w,
 		height:     h,
+		hoverX:     -1,
+		hoverY:     -1,
 	}
 }
 

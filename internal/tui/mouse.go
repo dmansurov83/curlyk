@@ -87,6 +87,16 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 		x, y := msg.X, msg.Y
 		m.mouseDragged = false
+		// If the navigation popup (Ctrl+G) is open, a click on one of its entry
+		// rows jumps to that request; a click elsewhere dismisses the popup.
+		if m.nav != nil {
+			if i := m.navItemAt(y); i >= 0 && x < lay.half {
+				m.active = paneEdit
+				m.activateNavItem(i)
+				return m, nil
+			}
+			m.nav = nil
+		}
 		// If the action popup is open, a click on one of its item rows runs it;
 		// any click elsewhere in the editor pane dismisses the popup.
 		if m.actionMenu != nil {
@@ -184,6 +194,12 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 				m.respSelCurRow, m.respSelCurCol = rrow, rcol
 			}
 		}
+	case msg.Button == tea.MouseButtonNone && msg.Action == tea.MouseActionMotion:
+		// Hover: the cursor moved with no button held. Track the position so
+		// popups, the files panel and the copy button can highlight the row
+		// under the pointer. With no change since the last event we still return,
+		// forcing a repaint so a freshly opened popup highlights the hovered row.
+		m.hoverX, m.hoverY = msg.X, msg.Y
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionMotion:
 		m.mouseDragged = true
 		// drag while holding left button
@@ -199,6 +215,9 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 			}
 		}
 	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionRelease:
+		// Clear hover so a popup opened right after a click doesn't keep an
+		// obsolete highlight; the next motion event re-establishes it.
+		m.hoverX, m.hoverY = -1, -1
 		// finish selection. Keep it if it was a drag or a double-click word
 		// selection; only collapse the standalone single-click.
 		if m.active == paneResp {

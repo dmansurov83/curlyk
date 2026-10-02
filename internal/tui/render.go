@@ -10,6 +10,9 @@ import (
 // fileSelStyle highlights the selected file row in the sidebar.
 var fileSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
 
+// fileHoverStyle highlights the file row under the mouse pointer in the sidebar.
+var fileHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Background(lipgloss.Color("238"))
+
 func (m model) View() string {
 	if m.width == 0 {
 		return i18n.T("loading.editor") + "\n"
@@ -85,12 +88,23 @@ func (m *model) renderFilesPanel(width, height int) string {
 	sb.WriteString(truncateWidth(search, width-2))
 	sb.WriteString("\n\n")
 	selStyle := fileSelStyle
+	// hovered file row index (same space as the render idx counter).
+	hover := -1
+	if m.hoverY >= 0 && m.paneAtX(m.hoverX) == paneFiles {
+		if hj, ok := mouseToFilesRow(m, m.hoverY); ok {
+			hover = hj
+		}
+	}
+	hoverStyle := fileHoverStyle
 	// "new file" pseudo-entry (row index 0 when the filter is empty)
 	idx := 0
 	if p.filter == "" {
-		if p.sel == 0 {
+		switch {
+		case p.sel == 0:
 			sb.WriteString(selStyle.Render("▸ "+i18n.T("file.new")) + "\n")
-		} else {
+		case idx == hover:
+			sb.WriteString(hoverStyle.Render("  "+i18n.T("file.new")) + "\n")
+		default:
 			sb.WriteString("  " + i18n.T("file.new") + "\n")
 		}
 		idx++
@@ -98,9 +112,12 @@ func (m *model) renderFilesPanel(width, height int) string {
 	// file list
 	listed := p.filtered()
 	for _, f := range listed {
-		if idx == p.sel {
+		switch {
+		case idx == p.sel:
 			sb.WriteString(selStyle.Render("▸ "+f) + "\n")
-		} else {
+		case idx == hover:
+			sb.WriteString(hoverStyle.Render("  "+f) + "\n")
+		default:
 			sb.WriteString("  " + f + "\n")
 		}
 		idx++

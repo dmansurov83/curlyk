@@ -35,7 +35,13 @@ func (m *model) renderResponse(width, height int) string {
 		}
 	}
 	// Fixed copy button row right after the headers (does not scroll).
-	sb.WriteString(copyButtonRow(contentW))
+	var copyBtn string
+	if m.hoverCopyButton() {
+		copyBtn = copyButtonRowHover(contentW)
+	} else {
+		copyBtn = copyButtonRow(contentW)
+	}
+	sb.WriteString(copyBtn)
 	sb.WriteString("\n")
 	// Body display lines (raw response text; JSON stays plain).
 	body := lines
@@ -141,6 +147,31 @@ func copyButtonRow(contentW int) string {
 		Background(lipgloss.Color("240")).
 		Render(full)
 	return btn
+}
+
+// copyButtonRowHover renders the copy-button row with a hover highlight (lighter
+// background) so it reads as the pointer being over the button.
+func copyButtonRowHover(contentW int) string {
+	label := i18n.T("resp.copyButton")
+	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
+	btn := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Bold(true).
+		Background(lipgloss.Color("30")).
+		Render(full)
+	return btn
+}
+
+// hoverCopyButton reports whether the mouse pointer is over the response copy
+// button row.
+func (m *model) hoverCopyButton() bool {
+	if m.hoverY < 0 || m.response == "" {
+		return false
+	}
+	if m.paneAtX(m.hoverX) != paneResp {
+		return false
+	}
+	return m.hoverY == headerHeight+1+m.respHeaderLines
 }
 
 // respSelectionForLine returns the rune-col range selected on response line row.

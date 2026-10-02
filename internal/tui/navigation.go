@@ -211,6 +211,7 @@ func (m *model) navLines(contentW int) []string {
 		out = append(out, menuNormalStyle.Render(line))
 		return out
 	}
+	hover := m.navHoverIndex()
 	shown := 0
 	for _, vi := range vis {
 		if shown >= maxNavRows {
@@ -219,9 +220,12 @@ func (m *model) navLines(contentW int) []string {
 		e := nav.entries[vi]
 		label := truncateWidth("  "+e.label, contentW)
 		label = padToWidth(label, contentW)
-		if shown == nav.sel {
+		switch {
+		case shown == nav.sel:
 			label = menuSelStyle.Render(label)
-		} else {
+		case shown == hover:
+			label = menuHoverStyle.Render(label)
+		default:
 			label = menuNormalStyle.Render(label)
 		}
 		out = append(out, label)
@@ -231,6 +235,65 @@ func (m *model) navLines(contentW int) []string {
 		out = append(out, menuNormalStyle.Render(padToWidth("  …", contentW)))
 	}
 	return out
+}
+
+// navHoverIndex returns the visible-list index currently under the mouse
+// pointer, or -1 when the pointer is outside the entries.
+func (m *model) navHoverIndex() int {
+	if m.nav == nil || m.hoverY < 0 {
+		return -1
+	}
+	return m.navItemAt(m.hoverY)
+}
+
+// navFirstEntryRow returns the absolute screen y of the navigation popup's
+// first SELECTABLE entry row. The popup is pinned to the top of the editor
+// content area: the pane's top content row is headerHeight+1 (the editor pane
+// starts with a border on the headerHeight-th row), the filter title sits
+// there, and the first entry is one row below.
+func (m *model) navFirstEntryRow() int {
+	return headerHeight + 2
+}
+
+// navItemAt maps an absolute screen y to the visible-list index under it, or -1
+// when the click is above the title / below the visible entries. Only entry rows
+// are clickable; the title row and the trailing ellipsis row return -1.
+func (m *model) navItemAt(y int) int {
+	nav := m.nav
+	if nav == nil {
+		return -1
+	}
+	vis := nav.visible()
+	if len(vis) == 0 {
+		return -1
+	}
+	// Row 0 is the title; entries start at row 1.
+	row := y - m.navFirstEntryRow()
+	if row < 0 || row >= len(vis) {
+		return -1
+	}
+	// Entries beyond maxNavRows are not rendered as clickable rows (an ellipsis
+	// row replaces them).
+	if row >= maxNavRows {
+		return -1
+	}
+	return row
+}
+
+// activateNavItem jumps to the request at visible-list index i (used by mouse
+// clicks) and closes the popup.
+func (m *model) activateNavItem(i int) {
+	nav := m.nav
+	if nav == nil {
+		return
+	}
+	vis := nav.visible()
+	if i < 0 || i >= len(vis) {
+		return
+	}
+	e := nav.entries[vis[i]]
+	m.nav = nil
+	m.jumpToRequest(e)
 }
 
 // navEmptyKey picks the "no entries" message: the file has no requests at all
