@@ -11,11 +11,22 @@ import (
 	"github.com/user/curlyk/internal/i18n"
 )
 
-// filesPanel is the left sidebar listing .http files with a search/filter box.
+// filesPanel is the left sidebar listing .http files with a search/filter box
+// and an environment-profile section at the bottom.
 type filesPanel struct {
 	all    []string // all .http files in the working dir
 	filter string   // search text
 	sel    int      // selected index into the filtered list
+	// profiles lists *.profile environment files in the working dir.
+	profiles []string
+	// onProfiles is true when the sidebar cursor is on the profile section
+	// (bottom of the panel) rather than the file list.
+	onProfiles bool
+	// profSel is the selected index into profiles.
+	profSel int
+	// profNew is true when the "+ Новый профиль" action row is focused (only
+	// meaningful while onProfiles is true).
+	profNew bool
 }
 
 // filtered returns files matching the current filter.
@@ -52,6 +63,14 @@ func httpFilesInDir(path string) []string {
 	return out
 }
 
+// loadProfiles rescans the working directory for *.profile files into the panel.
+func (p *filesPanel) loadProfiles() {
+	p.profiles = profileFilesInDir(".")
+	if p.profSel >= len(p.profiles) {
+		p.profSel = 0
+	}
+}
+
 // panelKey handles keys when the left files panel has focus.
 func (m *model) panelKey(msg tea.KeyMsg) tea.Cmd {
 	p := m.filesPanel
@@ -62,28 +81,35 @@ func (m *model) panelKey(msg tea.KeyMsg) tea.Cmd {
 	if p.all == nil {
 		p.all = httpFilesInDir(".")
 	}
+	if p.profiles == nil {
+		p.loadProfiles()
+	}
 	key := msg.String()
-	total := p.itemCount()
 	switch key {
-	case "up":
-		if p.sel > 0 {
-			p.sel--
-		}
-	case "down":
-		if p.sel < total-1 {
-			p.sel++
-		}
+	case "up", "down":
+		m.movePanelSelection(key)
 	case "enter":
-		m.openPanelFile()
+		if p.onProfiles && p.profNew {
+			m.beginProfileAs()
+		} else if p.onProfiles {
+			// open in the editor AND activate, exactly like opening a file
+			m.openProfile(p.profiles[p.profSel])
+		} else {
+			m.openPanelFile()
+		}
 	case "backspace":
 		if len(p.filter) > 0 {
 			p.filter = p.filter[:len(p.filter)-1]
 			p.sel = 0
+			p.onProfiles = false
 		}
 	case "esc":
 		if p.filter != "" {
 			p.filter = ""
 			p.sel = 0
+			p.onProfiles = false
+		} else if p.onProfiles {
+			p.onProfiles = false
 		} else {
 			m.active = paneEdit
 		}
@@ -94,9 +120,70 @@ func (m *model) panelKey(msg tea.KeyMsg) tea.Cmd {
 		if rs := msg.Runes; len(rs) > 0 && key != " " {
 			p.filter += string(rs)
 			p.sel = 0
+			p.onProfiles = false
 		}
 	}
 	return nil
+}
+
+// movePanelSelection moves the sidebar cursor between the file rows and the
+// profile section. Item selection (files + "New file") is counted by
+// itemCount(); once past it, the cursor enters the profile section.
+func (m *model) movePanelSelection(dir string) {
+	p := m.filesPanel
+	if p == nil {
+		return
+	}
+	if dir == "up" {
+		if p.onProfiles && p.profNew {
+			// from new-profile row to the last profile (or first file if none)
+			p.profNew = false
+			if len(p.profiles) > 0 {
+				p.profSel = len(p.profiles) - 1
+			} else if p.itemCount() > 0 {
+				p.onProfiles = false
+				p.sel = p.itemCount() - 1
+			}
+			return
+		}
+		if p.onProfiles && p.profSel > 0 {
+			p.profSel--
+			return
+		}
+		if p.onProfiles && p.profSel == 0 {
+			// jump back into the file list at its last row
+			p.onProfiles = false
+			p.profNew = false
+			p.sel = p.itemCount() - 1
+			return
+		}
+		if p.sel > 0 {
+			p.sel--
+		}
+		return
+	}
+	// down
+	if !p.onProfiles {
+		if p.sel < p.itemCount()-1 {
+			p.sel++
+			return
+		}
+		// past the last file row: enter the profile section (first profile, or
+		// straight to the new-profile action when none exist)
+		p.onProfiles = true
+		p.profSel = 0
+		p.profNew = len(p.profiles) == 0
+		return
+	}
+	if p.profNew {
+		return // already at the bottom
+	}
+	if p.profSel < len(p.profiles)-1 {
+		p.profSel++
+		return
+	}
+	// last profile -> new-profile action row
+	p.profNew = true
 }
 
 // itemCount returns the number of selectable rows: files, plus the "new file"
@@ -171,6 +258,7 @@ func (m *model) refreshFilesPanel() {
 		m.filesPanel = &filesPanel{}
 	}
 	p := m.filesPanel
+	p.loadProfiles()
 	p.all = files
 	// keep selection within bounds
 	if p.sel >= len(p.filtered()) {

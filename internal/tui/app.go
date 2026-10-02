@@ -71,6 +71,8 @@ type model struct {
 	filesPanel *filesPanel
 	// save-as input state (non-nil while asking for a file name)
 	saveAs *textinput.Model
+	// profileAs input state (non-nil while asking for a new profile name)
+	profileAs *textinput.Model
 	// action popup shown on Enter over a request line (nil when inactive)
 	actionMenu *actionMenu
 	// navigation popup shown on Ctrl+G (nil when closed)
@@ -100,6 +102,9 @@ type model struct {
 	// the periodic autosave loop to avoid rewriting appsettings.yml on every
 	// tick when nothing moved.
 	lastPersisted editorPos
+	// active profile name (a *.profile file whose @var variables are merged
+	// into request substitution); "" when no profile is active
+	profile string
 	// helpVisible forces the hotkey reference to show in the right pane (F1),
 	// regardless of whether a response is present. It is cleared automatically
 	// by the next response so the result pane is not covered.
@@ -203,6 +208,24 @@ func New(args Args) tea.Model {
 	ed = m.ed
 	// left file panel: list .http files in the working directory
 	fp := &filesPanel{all: httpFilesInDir(".")}
+	// ensure at least one profile exists so the profile section always has
+	// something usable; create default.profile when none exist yet
+	ensureDefaultProfile()
+	// load environment profiles and restore the active one from settings
+	fp.loadProfiles()
+	profile := s.ActiveProfile
+	if profile == "" {
+		profile = defaultProfileName
+	}
+	if _, err := os.Stat(profile); err != nil {
+		// fall back to the first available profile so exactly one is always
+		// active
+		if len(fp.profiles) > 0 {
+			profile = fp.profiles[0]
+		} else {
+			profile = ""
+		}
+	}
 	// highlight the file actually open on startup: with an empty filter row 0
 	// is the "+ Новый файл" pseudo-entry, so the file index is offset by one.
 	if openPath != "" {
@@ -218,6 +241,7 @@ func New(args Args) tea.Model {
 		ed:         ed,
 		active:     pane,
 		filesPanel: fp,
+		profile:    profile,
 		status:     i18n.T("ready.main"),
 		filePath:   openPath,
 		width:      w,
@@ -493,7 +517,14 @@ func (m *model) runRequest() tea.Cmd {
 	// Resolve {{name}} / {{$fn}} placeholders before building the request.
 	// An unresolved placeholder aborts the run with a clear message instead of
 	// silently sending a raw "{{x}}" on the wire.
-	sub, subErr := httpfile.Substitute(req.URL, req.Vars)
+	// The active profile, if any, supplies fallback @var values. File-level
+	// (@var in the .http) values win over the profile; the profile fills in
+	// anything the file does not define.
+	vars := req.Vars
+	if pv := m.activeProfileVars(); len(pv) > 0 {
+		vars = httpfile.MergeVars(pv, vars) // local (vars) overrides profile (pv)
+	}
+	sub, subErr := httpfile.Substitute(req.URL, vars)
 	if subErr != nil {
 		m.state = stateIdle
 		m.status = i18n.T("err.variable", subErr.(*httpfile.SubstitutionError).First())
@@ -502,7 +533,7 @@ func (m *model) runRequest() tea.Cmd {
 	}
 	req.URL = sub
 	for i := range req.Headers {
-		hv, herr := httpfile.Substitute(req.Headers[i].Value, req.Vars)
+		hv, herr := httpfile.Substitute(req.Headers[i].Value, vars)
 		if herr != nil {
 			m.state = stateIdle
 			m.status = i18n.T("err.variable", herr.(*httpfile.SubstitutionError).First())
@@ -512,7 +543,7 @@ func (m *model) runRequest() tea.Cmd {
 		req.Headers[i].Value = hv
 	}
 	if req.Body != "" {
-		bv, berr := httpfile.Substitute(req.Body, req.Vars)
+		bv, berr := httpfile.Substitute(req.Body, vars)
 		if berr != nil {
 			m.state = stateIdle
 			m.status = i18n.T("err.variable", berr.(*httpfile.SubstitutionError).First())

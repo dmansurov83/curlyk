@@ -36,6 +36,9 @@ func (m *model) renderHeader(width int) string {
 		name += " " + i18n.T("dirty.marker")
 	}
 	txt := i18n.T("header.file", name)
+	if m.profile != "" {
+		txt += i18n.T("header.profile", strings.TrimSuffix(filepath.Base(m.profile), ".profile"))
+	}
 	st := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).
 		Foreground(lipgloss.Color("252")).

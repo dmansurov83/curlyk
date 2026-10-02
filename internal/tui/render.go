@@ -69,11 +69,20 @@ func (m model) View() string {
 			Render(i18n.T("saveAs.prompt", m.saveAs.View()))
 		return header + "\n" + paneRow + "\n" + prompt + "\n" + bar
 	}
+	// new-profile prompt for naming a new environment profile
+	if m.profileAs != nil {
+		prompt := lipgloss.NewStyle().
+			Background(lipgloss.Color("235")).
+			Foreground(lipgloss.Color("222")).
+			Width(m.width).
+			Render(i18n.T("profile.createPrompt", m.profileAs.View()))
+		return header + "\n" + paneRow + "\n" + prompt + "\n" + bar
+	}
 	return header + "\n" + paneRow + "\n" + bar
 }
 
-// renderFilesPanel draws the left sidebar: a search box on top, then the file
-// list with a "new file" entry.
+// renderFilesPanel draws the left sidebar: a search box on top, the file list
+// with a "new file" entry, and an environment-profile section at the bottom.
 func (m *model) renderFilesPanel(width, height int) string {
 	if m.filesPanel == nil {
 		m.filesPanel = &filesPanel{}
@@ -82,11 +91,19 @@ func (m *model) renderFilesPanel(width, height int) string {
 	if p.all == nil {
 		p.all = httpFilesInDir(".")
 	}
+	if p.profiles == nil {
+		p.loadProfiles()
+	}
 	var sb strings.Builder
 	// search box
 	search := i18n.T("search.label", p.filter)
 	sb.WriteString(truncateWidth(search, width-2))
 	sb.WriteString("\n\n")
+	// rows the file area fills so the profile section sits at a predictable
+	// position for mouse hit-testing
+	totalRows := m.filesPaneH()
+	areaRows := m.fileListMaxRows()
+	rowsWritten := 0
 	selStyle := fileSelStyle
 	// hovered file row index (same space as the render idx counter).
 	hover := -1
@@ -96,33 +113,85 @@ func (m *model) renderFilesPanel(width, height int) string {
 		}
 	}
 	hoverStyle := fileHoverStyle
+	writeRow := func(s string) {
+		if rowsWritten >= areaRows {
+			return
+		}
+		sb.WriteString(s + "\n")
+		rowsWritten++
+	}
 	// "new file" pseudo-entry (row index 0 when the filter is empty)
 	idx := 0
 	if p.filter == "" {
 		switch {
 		case p.sel == 0:
-			sb.WriteString(selStyle.Render("▸ "+i18n.T("file.new")) + "\n")
+			writeRow(selStyle.Render("▸ " + i18n.T("file.new")))
 		case idx == hover:
-			sb.WriteString(hoverStyle.Render("  "+i18n.T("file.new")) + "\n")
+			writeRow(hoverStyle.Render("  " + i18n.T("file.new")))
 		default:
-			sb.WriteString("  " + i18n.T("file.new") + "\n")
+			writeRow("  " + i18n.T("file.new"))
 		}
 		idx++
 	}
-	// file list
+	// file list, capped at the reserved file area rows
 	listed := p.filtered()
 	for _, f := range listed {
 		switch {
 		case idx == p.sel:
-			sb.WriteString(selStyle.Render("▸ "+f) + "\n")
+			writeRow(selStyle.Render("▸ " + f))
 		case idx == hover:
-			sb.WriteString(hoverStyle.Render("  "+f) + "\n")
+			writeRow(hoverStyle.Render("  " + f))
 		default:
-			sb.WriteString("  " + f + "\n")
+			writeRow("  " + f)
 		}
 		idx++
 	}
-	return sb.String()
+	// pad the file area to its reserved height so the profile section lands on
+	// the rows the mouse mapping expects
+	for rowsWritten < areaRows {
+		sb.WriteString("\n")
+		rowsWritten++
+	}
+	// environment profile section pinned to the bottom of the sidebar. Always
+	// rendered so the user can discover profiles; a hint line shows when none
+	// exist yet, and a "+ Новый профиль" action is always available at the very
+	// bottom to create one.
+	sb.WriteString(profileSepStyle.Render(strings.Repeat("─", width-2)) + "\n")
+	sb.WriteString(profileTitleStyle.Render(i18n.T("profile.title")) + "\n")
+	// hovered profile row (like files): for mouse hover highlighting
+	profHover := -1
+	if m.hoverY >= 0 && m.paneAtX(m.hoverX) == paneFiles {
+		if hj, ok := m.mouseToProfileRow(m.hoverY); ok {
+			profHover = hj
+		}
+	}
+	if len(p.profiles) == 0 {
+		sb.WriteString("  " + i18n.T("profile.noneConfigured") + "\n")
+	} else {
+		for pi := range p.profiles {
+			sb.WriteString(m.profileRowLine(width, pi, pi == profHover) + "\n")
+		}
+	}
+	// "new profile" pseudo-entry: always last, activates profile-name input.
+	// Hover highlighting, like the file "new file" row and profile rows.
+	newHover := m.hoverY >= 0 && m.paneAtX(m.hoverX) == paneFiles && m.mouseToProfileNewRow(m.hoverY)
+	newLabel := i18n.T("profile.new")
+	switch {
+	case p.onProfiles && p.profNew:
+		sb.WriteString(profileNewSelStyle.Render("▸ "+newLabel) + "\n")
+	case newHover:
+		sb.WriteString(fileHoverStyle.Render("  "+newLabel) + "\n")
+	default:
+		sb.WriteString("  " + newLabel + "\n")
+	}
+	// Cap the whole panel to its interior height so the frame never overflows
+	// the terminal on small windows.
+	out := sb.String()
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) > totalRows {
+		return strings.Join(lines[:totalRows], "\n")
+	}
+	return out
 }
 
 var exampleHTTP = `

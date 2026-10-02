@@ -79,6 +79,39 @@ func Substitute(s string, vars map[string]string) (string, error) {
 	return b.String(), nil
 }
 
+// ParseProfileVars parses the @var declarations of a profile file (a *.profile
+// file whose lines use the same "@var name = value" syntax as .http files). It
+// returns the parsed name->value map. The file needs no request blocks; only
+// @var lines are read, and lines that are not @var declarations are ignored.
+func ParseProfileVars(src string) map[string]string {
+	vars := map[string]string{}
+	for _, raw := range strings.Split(src, "\n") {
+		line := strings.TrimSpace(strings.TrimSuffix(raw, "\r"))
+		if !strings.HasPrefix(line, "@var") {
+			continue
+		}
+		key, val := parseVarLine(line)
+		if key != "" {
+			vars[key] = val
+		}
+	}
+	return vars
+}
+
+// MergeVars returns a copy of base with the entries of override layered on top.
+// Profile variables win over file variables when the caller chooses then as the
+// override layer. The base map is not mutated.
+func MergeVars(base, override map[string]string) map[string]string {
+	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
+}
+
 // resolveVar resolves a single placeholder body. A leading "$" selects a
 // built-in function; anything else is looked up in vars.
 func resolveVar(name string, vars map[string]string) (string, bool) {

@@ -105,6 +105,25 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// New-profile input: capture a profile name.
+	if m.profileAs != nil {
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			m.profileAs = nil
+			m.active = paneFiles
+		case "enter":
+			name := strings.TrimSpace(m.profileAs.Value())
+			m.profileAs = nil
+			m.active = paneFiles
+			if name != "" {
+				m.createProfile(name)
+			}
+		default:
+			updated, _ := m.profileAs.Update(msg)
+			m.profileAs = &updated
+		}
+		return m, nil
+	}
 	// Intercept bracketed paste (e.g. Ctrl+Shift+V / terminal context menu) so
 	// a pasted cURL command is auto-converted instead of inserted as raw text.
 	if msg.Paste {

@@ -133,6 +133,17 @@ var catalogs = map[string]map[string]string{
 		"nav.jumped":     "Запрос «%s» (строка %d)",
 		"nav.noRequests": "В файле нет запросов",
 		"nav.noMatches":  "Нет совпадений",
+
+		// profiles.go
+		"profile.title":           "Профили",
+		"profile.activeBadge":     "●",
+		"profile.activated":       "Профиль: %s",
+		"profile.noneConfigured":  "нет *.profile",
+		"profile.new":             "+ Новый профиль",
+		"profile.created":         "Профиль создан: %s",
+		"profile.createPrompt":    "Новый профиль: %s",
+		"placeholder.profileName": "имя профиля",
+		"header.profile":          " [профиль: %s]",
 	},
 	"en": {
 		// app.go statuses & messages
@@ -246,6 +257,17 @@ var catalogs = map[string]map[string]string{
 		"nav.jumped":     "Request «%s» (line %d)",
 		"nav.noRequests": "No requests in file",
 		"nav.noMatches":  "No matches",
+
+		// profiles.go
+		"profile.title":           "Profiles",
+		"profile.activeBadge":     "●",
+		"profile.activated":       "Profile: %s",
+		"profile.noneConfigured":  "no *.profile",
+		"profile.new":             "+ New profile",
+		"profile.created":         "Profile created: %s",
+		"profile.createPrompt":    "New profile: %s",
+		"placeholder.profileName": "profile name",
+		"header.profile":          " [profile: %s]",
 	},
 }
 

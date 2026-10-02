@@ -110,6 +110,16 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// files panel click (incl. its borders)
 		if x < lay.filesEnd {
 			m.active = paneFiles
+			if row, ok := m.mouseToProfileRow(y); ok {
+				m.openProfile(m.filesPanel.profiles[row])
+				return m, nil
+			}
+			if m.mouseToProfileNewRow(y) {
+				m.filesPanel.onProfiles = true
+				m.filesPanel.profNew = true
+				m.beginProfileAs()
+				return m, nil
+			}
 			if row, ok := mouseToFilesRow(&m, y); ok {
 				m.filesPanel.sel = row
 				m.openPanelFile()
@@ -424,6 +434,11 @@ func mouseToFilesRow(m *model, y int) (row int, ok bool) {
 			total = 1 // "+ Новый файл"
 		}
 		total += len(p.filtered())
+	}
+	// The file list area may be capped by the profile section at the bottom of
+	// the sidebar; a click past the visible file rows is not a file row.
+	if max := m.fileListMaxRows(); total > max {
+		total = max
 	}
 	if idx >= total {
 		return 0, false

@@ -27,6 +27,10 @@ type Settings struct {
 	// Lang is the UI locale code ("ru" or "en"). An empty value means the
 	// default "ru" (or whatever CURLYK_LANG selects).
 	Lang string `yaml:"lang,omitempty"`
+	// ActiveProfile is the name of the currently selected environment profile
+	// (a *.profile file in the working directory whose @var declarations are
+	// merged into request variables). Empty means no profile is active.
+	ActiveProfile string `yaml:"active_profile,omitempty"`
 }
 
 // CursorPos is a remembered cursor position for a single file.

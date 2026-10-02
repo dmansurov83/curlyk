@@ -170,3 +170,46 @@ func TestSubstituteNoVarsUnchanged(t *testing.T) {
 		t.Errorf("plain text changed: %q", out)
 	}
 }
+
+func TestParseProfileVars(t *testing.T) {
+	src := "@var host = http://dev\n@var token = abc\nGET http://ignored\n\n@var empty =\n"
+	vars := ParseProfileVars(src)
+	if vars["host"] != "http://dev" || vars["token"] != "abc" {
+		t.Errorf("ParseProfileVars=%v", vars)
+	}
+	if _, ok := vars["empty"]; !ok {
+		t.Errorf("expected empty var to be present")
+	}
+}
+
+func TestMergeVarsOverrideLayersLast(t *testing.T) {
+	base := map[string]string{"host": "http://local", "only": "base"}
+	override := map[string]string{"host": "http://profile", "extra": "x"}
+	merged := MergeVars(base, override)
+	if merged["host"] != "http://profile" {
+		t.Errorf("host=%q want profile (override wins)", merged["host"])
+	}
+	if merged["extra"] != "x" {
+		t.Errorf("extra=%q", merged["extra"])
+	}
+	if merged["only"] != "base" {
+		t.Errorf("only=%q", merged["only"])
+	}
+	// base must not be mutated
+	if base["host"] != "http://local" {
+		t.Errorf("base mutated: %v", base)
+	}
+}
+
+func TestMergeVarsLocalOverProfile(t *testing.T) {
+	profile := map[string]string{"host": "http://profile", "only": "p"}
+	local := map[string]string{"host": "http://local"}
+	// MergeVars(profile, local): local overrides profile => host=local
+	merged := MergeVars(profile, local)
+	if merged["host"] != "http://local" {
+		t.Errorf("host=%q want local", merged["host"])
+	}
+	if merged["only"] != "p" {
+		t.Errorf("only=%q want p (fallback from profile)", merged["only"])
+	}
+}
