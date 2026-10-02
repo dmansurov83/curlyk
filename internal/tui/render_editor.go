@@ -28,9 +28,13 @@ var scrollbarThumbStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
 // scrollbarTrackStyle draws the scrollbar track.
 var scrollbarTrackStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
-// renderHeader draws the top bar with the current file name.
+// renderHeader draws the top bar with the current file name. A dirty marker is
+// appended to the name when the buffer has unsaved changes.
 func (m *model) renderHeader(width int) string {
 	name := m.currentFileName()
+	if m.dirty {
+		name += " " + i18n.T("dirty.marker")
+	}
 	txt := i18n.T("header.file", name)
 	st := lipgloss.NewStyle().
 		Background(lipgloss.Color("235")).

@@ -118,6 +118,7 @@ func (m *model) openPanelFile() {
 	}
 	// When the filter is empty, row 0 is "+ Новый файл".
 	if p.filter == "" && p.sel == 0 {
+		m.saveCurrentBeforeSwitch()
 		m.rememberCursor(m.filePath)
 		m.newBuffer()
 		m.active = paneEdit
@@ -137,10 +138,13 @@ func (m *model) openPanelFile() {
 		m.status = i18n.T("err.openFile", name, err.Error())
 		return
 	}
+	// persist the current buffer before switching away to it
+	m.saveCurrentBeforeSwitch()
 	// remember where the cursor was in the file being left
 	m.rememberCursor(m.filePath)
 	m.ed.SetText(string(data))
 	m.filePath = name
+	m.dirty = false
 	m.active = paneEdit
 	m.status = i18n.T("status.opened", name)
 	rememberLastOpened(name)
@@ -178,8 +182,23 @@ func (m *model) refreshFilesPanel() {
 func (m *model) newBuffer() {
 	m.ed.SetText("")
 	m.filePath = ""
+	m.dirty = false
 	m.active = paneEdit
 	m.status = i18n.T("status.newFile")
+}
+
+// saveCurrentBeforeSwitch persists the current editor buffer to its file (or
+// the session file when unnamed) before switching to another file, so unsaved
+// changes are not lost when the user opens a different file.
+func (m *model) saveCurrentBeforeSwitch() {
+	if m.ed == nil || !m.dirty {
+		return
+	}
+	saved := m.filePath
+	m.saveBuffer()
+	if m.filePath == "" && saved != "" {
+		m.filePath = saved
+	}
 }
 
 // saveBuffer writes the editor to its file, or to the session file when no
@@ -197,6 +216,7 @@ func (m *model) saveBuffer() {
 	if m.filePath == "" {
 		m.filePath = sessionPath()
 	}
+	m.dirty = false
 	m.status = i18n.T("status.saved", filepath.Base(target))
 }
 
@@ -221,6 +241,7 @@ func (m *model) saveBufferAs(name string) {
 		return
 	}
 	m.filePath = name
+	m.dirty = false
 	m.status = i18n.T("status.saved", name)
 	rememberLastOpened(name)
 	m.refreshFilesPanel()

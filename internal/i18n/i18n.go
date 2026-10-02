@@ -72,6 +72,7 @@ var catalogs = map[string]map[string]string{
 		// render_editor.go
 		"header.file":  "Файл: %s",
 		"file.unnamed": "новый файл",
+		"dirty.marker": "*",
 
 		// render_resp.go
 		"status.executing": "Выполняется...",
@@ -172,6 +173,7 @@ var catalogs = map[string]map[string]string{
 		// render_editor.go
 		"header.file":  "File: %s",
 		"file.unnamed": "new file",
+		"dirty.marker": "*",
 
 		// render_resp.go
 		"status.executing": "Running...",
