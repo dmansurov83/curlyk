@@ -116,3 +116,79 @@ func TestNameAnnotationAfterRequest(t *testing.T) {
 		t.Errorf("req0 name=%q want 'inline'", reqs[0].Name)
 	}
 }
+
+// TestParseOptions verifies processing options after the request line are
+// collected into Request.Options and headers/body still parse correctly.
+func TestParseOptions(t *testing.T) {
+	src := `### get
+GET https://api.test/users/1
+@timeout 5s
+@no-redirect
+@insecure
+Accept: application/json
+
+{"a":1}
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	want := []Option{
+		{Name: "timeout", Value: "5s"},
+		{Name: "no-redirect", Value: ""},
+		{Name: "insecure", Value: ""},
+	}
+	if len(r.Options) != len(want) {
+		t.Fatalf("options=%+v want %+v", r.Options, want)
+	}
+	for i := range want {
+		if r.Options[i] != want[i] {
+			t.Errorf("option[%d]=%+v want %+v", i, r.Options[i], want[i])
+		}
+	}
+	if len(r.Headers) != 1 || r.Headers[0].Name != "Accept" {
+		t.Errorf("headers=%+v", r.Headers)
+	}
+	if r.Body != `{"a":1}` {
+		t.Errorf("body=%q", r.Body)
+	}
+}
+
+// TestParseOptionNotHeader verifies a bare "@" line or an unknown @-prefixed
+// line is not swallowed as an option (so a stray '@' behaves as before).
+func TestParseOptionRejectsMalformed(t *testing.T) {
+	src := "GET http://a/1\n@\n"
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	if len(reqs[0].Options) != 0 {
+		t.Errorf("options=%+v want none", reqs[0].Options)
+	}
+}
+
+// TestLexOption verifies option lines lex to TokOption and are not treated as
+// body text.
+func TestLexOption(t *testing.T) {
+	src := "GET http://x/\n@timeout 5s\n@no-redirect\nAccept: text/plain\n"
+	toks := Lex(src)
+	var optVals []string
+	var hasMethod, hasHeader bool
+	for _, tk := range toks {
+		switch tk.Type {
+		case TokOption:
+			optVals = append(optVals, tk.Value)
+		case TokMethod:
+			hasMethod = true
+		case TokHeaderName:
+			hasHeader = true
+		}
+	}
+	if len(optVals) != 2 {
+		t.Errorf("expected 2 option tokens, got %v", optVals)
+	}
+	if !hasMethod || !hasHeader {
+		t.Errorf("method=%v header=%v", hasMethod, hasHeader)
+	}
+}

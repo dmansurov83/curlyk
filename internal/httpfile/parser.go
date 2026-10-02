@@ -84,6 +84,15 @@ func ParseFile(src string) []Request {
 			continue
 		}
 
+		// Processing option, e.g. "@timeout 5s". Only valid in header mode
+		// (after the request line, before a blank line / header / body).
+		if seenRequest && mode == modeHeaders {
+			if opt, ok := parseOptionLine(line); ok {
+				cur.Options = append(cur.Options, opt)
+				continue
+			}
+		}
+
 		// Comment handling depends on mode.
 		if trim == "" {
 			// Blank line ends the header block (if in headers mode).
@@ -130,6 +139,35 @@ func ParseFile(src string) []Request {
 	flush()
 
 	return reqs
+}
+
+// parseOptionLine parses a "@name value" processing-option line. It returns the
+// option (offset name/value) and true on success. Names must be non-empty and
+// made entirely of lower-case ASCII letters and hyphens (timeout, no-redirect,
+// insecure). Anything else, including a stray "@" that is not a known option
+// line, yields ok=false so the parser can fall back to header/body handling.
+func parseOptionLine(line string) (Option, bool) {
+	if !strings.HasPrefix(line, "@") {
+		return Option{}, false
+	}
+	rest := strings.TrimLeft(line[1:], " \t")
+	name := rest
+	value := ""
+	if i := strings.IndexRune(rest, ' '); i >= 0 {
+		name = rest[:i]
+		value = strings.TrimSpace(rest[i+1:])
+	}
+	if name == "" {
+		return Option{}, false
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		ok := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+		if !ok {
+			return Option{}, false
+		}
+	}
+	return Option{Name: name, Value: value}, true
 }
 
 // joinBody trims leading blank lines of the body and returns it joined.

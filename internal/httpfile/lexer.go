@@ -17,6 +17,7 @@ const (
 	TokHeaderValue                  // header value after ':'
 	TokBodyText                     // raw body line
 	TokVariable                     // a {{ ... }} placeholder (may be embedded)
+	TokOption                       // a processing-option line: "@timeout 5s", "@no-redirect"
 	TokOther                        // anything not classified
 )
 
@@ -104,6 +105,19 @@ func Lex(src string) []Token {
 			vt := Token{Type: TokHeaderValue, Value: line[valStart:], Line: lineNo, Start: valStart, End: len(line),
 				Vars: findVars(line[valStart:])}
 			toks = append(toks, nt, vt)
+			continue
+		}
+
+		// Processing-option line: "@timeout 5s", "@no-redirect". Besides pairing
+		// with @name below, we handle it here so it is never misread as body text.
+		if _, ok := parseOptionLine(line); ok {
+			toks = append(toks, Token{Type: TokOption, Value: line, Line: lineNo, Start: 0, End: len(line)})
+			continue
+		}
+
+		// @name annotation line.
+		if strings.HasPrefix(strings.TrimSpace(line), "@name ") || strings.TrimSpace(line) == "@name" {
+			toks = append(toks, Token{Type: TokOption, Value: line, Line: lineNo, Start: 0, End: len(line)})
 			continue
 		}
 

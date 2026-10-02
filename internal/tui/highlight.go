@@ -42,6 +42,7 @@ var (
 	commentStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
 	varStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
 	separatorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
+	optionStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("178")).Bold(true)
 	otherStyle      = lipgloss.NewStyle()
 	// cursorStyle is the visible block cursor (reverse video, high contrast).
 	cursorStyle = lipgloss.NewStyle().Background(lipgloss.Color("63")).Foreground(lipgloss.Color("15")).Bold(true)
@@ -373,6 +374,8 @@ func baseStyle(t httpfile.TokenType) lipgloss.Style {
 		return commentStyle
 	case httpfile.TokSeparator:
 		return separatorStyle
+	case httpfile.TokOption:
+		return optionStyle
 	default:
 		return otherStyle
 	}

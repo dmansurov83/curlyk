@@ -111,19 +111,8 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		if x < lay.filesEnd {
 			m.active = paneFiles
 			if row, ok := mouseToFilesRow(&m, y); ok {
-				// double-click detection reuses the editor's last-click state.
-				isDouble := !m.lastClickTime.IsZero() &&
-					time.Since(m.lastClickTime) < 300*time.Millisecond &&
-					row == m.lastClickFilesRow && y == m.lastClickFilesY
-				if !isDouble && time.Since(m.lastClickTime) > 300*time.Millisecond {
-					m.lastWasDouble = false
-				}
-				m.lastClickTime = time.Now()
-				m.lastClickFilesRow, m.lastClickFilesY = row, y
 				m.filesPanel.sel = row
-				if isDouble {
-					m.openPanelFile()
-				}
+				m.openPanelFile()
 			}
 			return m, nil
 		}

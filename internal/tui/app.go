@@ -51,8 +51,6 @@ type model struct {
 	// last-left-click tracking for double-click word selection
 	lastClickRow, lastClickCol int
 	lastClickTime              time.Time
-	// last-left-click in the files panel (for double-click to open a file)
-	lastClickFilesRow, lastClickFilesY int
 	// last Esc press time (double-Esc quits)
 	lastEscTime time.Time
 	// response-pane text selection
@@ -475,10 +473,22 @@ func (m *model) runRequest() tea.Cmd {
 	}
 	m.state = stateRunning
 	m.status = i18n.T("status.running", req.Method, req.URL)
+	opts, optErr := runner.ApplyOptions(*req, runner.Options{FollowRedirects: false})
+	if optErr != nil {
+		m.state = stateIdle
+		m.status = i18n.T("err.option", optErr.Error())
+		m.active = paneEdit
+		return nil
+	}
+	clientTimeout := opts.TimeoutOrDefault()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		dur := clientTimeout
+		if dur < 0 {
+			dur = 0
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), dur)
 		defer cancel()
-		res := runner.Run(ctx, *req, runner.Options{FollowRedirects: false})
+		res := runner.Run(ctx, *req, opts)
 		if res.Err != nil {
 			return runResultMsg{res: res}
 		}
