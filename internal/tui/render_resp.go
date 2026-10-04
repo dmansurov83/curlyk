@@ -76,6 +76,7 @@ func (m *model) renderResponse(width, height int) string {
 // row falls inside it. Body rows are offset from the header count by respScroll;
 // the line is truncated first so highlighting never re-measures an ANSI string.
 func (m *model) renderRespSelLine(hi int, ln string, contentW int) string {
+	origLn := ln
 	if m.respHScroll > 0 {
 		ln = truncateWidthOffset(ln, contentW, m.respHScroll)
 	} else if truncateWidthIsOverflow(ln, contentW) {
@@ -91,7 +92,7 @@ func (m *model) renderRespSelLine(hi int, ln string, contentW int) string {
 	// When the response search is open, paint the find matches over the line
 	// (find only targets the body, so header rows keep JSON/selection only).
 	if m.respSearchActive() {
-		return m.colorizeFindLine(hi, ln, selStart, selEnd, hasSel)
+		return m.colorizeFindLine(hi, origLn, ln, contentW, selStart, selEnd, hasSel)
 	}
 	return jsonColorizeLine(ln, selStart, selEnd, hasSel)
 }

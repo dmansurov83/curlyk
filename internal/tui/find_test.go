@@ -222,6 +222,34 @@ func TestFindRendersHighlight(t *testing.T) {
 	}
 }
 
+// TestFindHighlightStaysInWindow verifies the current-match highlight remains
+// in the visible window when the pane is horizontally scrolled (the regression
+// where the highlight landed off-screen because the visible window offset was
+// miscomputed). A deep match on a long line must render highlighted, and the
+// highlight column index must fall inside the visible rune window.
+func TestFindHighlightStaysInWindow(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	prefix := strings.Repeat("x", 100)
+	m.response = "HTTP/1.1 200 OK\n\n" + prefix + "hit\n"
+	m.respHeader = "HTTP/1.1 200 OK\n"
+	m.openSearch(paneResp, "")
+	m.searchType("hit")
+	flat := flattenFind(m.findMatches)
+	if len(flat) < 1 {
+		t.Fatalf("expected at least one match")
+	}
+	m.findCur = 0
+	m.scrollToCurrentMatch()
+	if m.respHScroll == 0 {
+		t.Fatalf("expected horizontal scroll for the deep match")
+	}
+	// The rendered body row must contain the current-match highlight.
+	out := m.renderRespSelLine(m.respHeaderLineCount(), prefix+"hit", m.respContentWidth())
+	if !strings.Contains(out, "48;5;196") {
+		t.Fatalf("deep match highlight missing in visible window (respHScroll=%d):\n%q", m.respHScroll, out)
+	}
+}
+
 // TestSearchBarPinnedToTop verifies the search bar renders on the top header row
 // of the full frame (in place of the file-name bar), so the pane content and its
 // coordinates are unchanged.
@@ -442,4 +470,57 @@ func targetOf(m model) int {
 		return -1
 	}
 	return int(m.search.target)
+}
+
+// TestFindScrollHorizontal verifies navigating to a match on a long line scrolls
+// the response pane horizontally so the match is brought into view (and centred
+// when the line is much wider than the pane).
+func TestFindScrollHorizontal(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	// A long line with "target" deep into it, and a short line with "target".
+	longPrefix := strings.Repeat("x", 80)
+	m.response = "HTTP/1.1 200 OK\n\n" + longPrefix + "target\nshort target\n"
+	m.respHeader = "HTTP/1.1 200 OK\n"
+	m.openSearch(paneResp, "")
+	m.searchType("target")
+
+	// First match is on the long line at rune col 80.
+	flat := flattenFind(m.findMatches)
+	if len(flat) < 2 {
+		t.Fatalf("expected 2 matches, got %d", len(flat))
+	}
+	m.findCur = 0
+	m.scrollToCurrentMatch()
+	contentW := m.respContentWidth()
+	if m.respHScroll == 0 {
+		t.Fatalf("long-line match should scroll horizontally, respHScroll=0")
+	}
+	// The match's column (80) minus a centred half-viewport must be a valid
+	// scroll offset: 0 <= want <= totalContent-width.
+	line := strings.Split(m.response, "\n")[2]
+	total := len([]rune(line))
+	mxH := total - contentW
+	wantH := 80 - contentW/2
+	if wantH < 0 {
+		wantH = 0
+	}
+	if wantH > mxH {
+		wantH = mxH
+	}
+	if m.respHScroll != wantH {
+		t.Fatalf("respHScroll=%d want %d (match centred at middle of pane)", m.respHScroll, wantH)
+	}
+	// The match must be within the visible window: col >= respHScroll and
+	// col < respHScroll + contentW.
+	if 80 < m.respHScroll || 80 >= m.respHScroll+contentW {
+		t.Fatalf("match col 80 not visible at respHScroll=%d (window +%d)", m.respHScroll, contentW)
+	}
+
+	// Second match is on the short line, which fits the pane: horizontal scroll
+	// resets to 0.
+	m.findCur = 1
+	m.scrollToCurrentMatch()
+	if m.respHScroll != 0 {
+		t.Fatalf("short-line match should reset horizontal scroll, got %d", m.respHScroll)
+	}
 }
