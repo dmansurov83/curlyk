@@ -48,9 +48,9 @@ func TestHoverHighlightsFilesPanel(t *testing.T) {
 	// Force a files list so the panel has rows to hover.
 	m.filesPanel = &filesPanel{all: []string{"a.http", "b.http", "c.http"}}
 	m.filesPanel.sel = 1
-	// Files rows: search(headerHeight+1) + blank(headerHeight+2) + rows from
-	// headerHeight+3. Hover row index 2 => y = headerHeight+5.
-	y := headerHeight + 5
+	// Files rows: row indices start at headerHeight+1 (no in-panel search box).
+	// Hover row index 2 => y = headerHeight+3.
+	y := headerHeight + 3
 	mm, _ := m.Update(tea.MouseMsg{
 		Button: tea.MouseButtonNone, Action: tea.MouseActionMotion,
 		X: 5, Y: y,

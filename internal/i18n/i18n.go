@@ -47,6 +47,7 @@ var catalogs = map[string]map[string]string{
 		"help.runMenu":  "Действия над запросом (попап)",
 		"help.copyCurl": "Copy as cURL",
 		"help.nav":      "Навигация по запросам (список + фильтр)",
+		"help.find":     "Поиск по файлам/ответу: начните печатать",
 		"help.undo":     "Отменить",
 		"help.redo":     "Повторить",
 		"help.delLine":  "Удалить строку",
@@ -75,6 +76,12 @@ var catalogs = map[string]map[string]string{
 		"saveAs.prompt":  "Сохранить как: %s",
 		"search.label":   "поиск: %s|",
 		"file.new":       "+ Новый файл",
+
+		// find.go (unified search bar for files / response)
+		"find.bar":             "Найти: %s   %s",
+		"find.placeholder":     "поиск в ответе",
+		"find.counter":         "%d/%d",
+		"find.placeholderFile": "фильтр файлов",
 
 		// render_editor.go
 		"header.file":  "Файл: %s",
@@ -171,6 +178,7 @@ var catalogs = map[string]map[string]string{
 		"help.runMenu":  "Request actions (popup)",
 		"help.copyCurl": "Copy as cURL",
 		"help.nav":      "Navigate requests (list + filter)",
+		"help.find":     "Search files/response: start typing",
 		"help.undo":     "Undo",
 		"help.redo":     "Redo",
 		"help.delLine":  "Delete line",
@@ -199,6 +207,12 @@ var catalogs = map[string]map[string]string{
 		"saveAs.prompt":  "Save as: %s",
 		"search.label":   "search: %s|",
 		"file.new":       "+ New file",
+
+		// find.go (unified search bar for files / response)
+		"find.bar":             "Find: %s   %s",
+		"find.placeholder":     "search in response",
+		"find.counter":         "%d/%d",
+		"find.placeholderFile": "filter files",
 
 		// render_editor.go
 		"header.file":  "File: %s",

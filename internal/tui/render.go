@@ -60,6 +60,13 @@ func (m model) View() string {
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, pan, left)
 	paneRow := lipgloss.JoinHorizontal(lipgloss.Top, row1, right)
 	header := m.renderHeader(m.width)
+	// The unified search bar (files or response) is drawn on the top header row
+	// (in place of the file-name bar) so no pane row moves — the pane content,
+	// and thus mouse and selection coordinates, stay exactly as when it is
+	// closed.
+	if m.searchActive() {
+		header = m.searchBarRow(m.width)
+	}
 	// save-as prompt for naming a new file
 	if m.saveAs != nil {
 		prompt := lipgloss.NewStyle().
@@ -95,10 +102,8 @@ func (m *model) renderFilesPanel(width, height int) string {
 		p.loadProfiles()
 	}
 	var sb strings.Builder
-	// search box
-	search := i18n.T("search.label", p.filter)
-	sb.WriteString(truncateWidth(search, width-2))
-	sb.WriteString("\n\n")
+	// The file filter is drawn on the top frame row when the files panel is
+	// active (see View), so the panel itself starts directly at the file rows.
 	// rows the file area fills so the profile section sits at a predictable
 	// position for mouse hit-testing
 	totalRows := m.filesPaneH()

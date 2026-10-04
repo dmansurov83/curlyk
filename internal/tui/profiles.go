@@ -53,7 +53,9 @@ func profileFilesInDir(path string) []string {
 func (m *model) fileListMaxRows() int {
 	H := m.filesPaneH()
 	bottom := m.profileAreaRows()
-	maxRows := H - 2 - bottom // 2 rows: search box + blank separator
+	// No in-panel search box any more (the filter lives on the top frame row),
+	// so the file rows start immediately after the panel top border.
+	maxRows := H - bottom
 	if maxRows < 0 {
 		maxRows = 0
 	}
@@ -91,9 +93,9 @@ func (m *model) profileAreaRows() int {
 // title row (used to map mouse clicks onto profile rows). The value is only
 // meaningful when profiles exist.
 func (m *model) profileTitleRowAbs() int {
-	// filesView rows: search(1) + blank(1) + fileMax file rows + separator(1),
-	// then the title. Content starts at headerHeight+1.
-	return (headerHeight + 1) + 2 + m.fileListMaxRows() + 1
+	// filesView rows: fileMax file rows + separator(1), then the title. Content
+	// starts at headerHeight+1; there is no in-panel search box any more.
+	return (headerHeight + 1) + m.fileListMaxRows() + 1
 }
 
 // profileRowAbs returns the absolute screen y of a profile row (0-based index

@@ -88,6 +88,11 @@ func (m *model) renderRespSelLine(hi int, ln string, contentW int) string {
 	if m.respSelActive && m.respHScroll == 0 {
 		selStart, selEnd, hasSel = m.respSelectionForLine(hi)
 	}
+	// When the response search is open, paint the find matches over the line
+	// (find only targets the body, so header rows keep JSON/selection only).
+	if m.respSearchActive() {
+		return m.colorizeFindLine(hi, ln, selStart, selEnd, hasSel)
+	}
 	return jsonColorizeLine(ln, selStart, selEnd, hasSel)
 }
 

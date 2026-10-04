@@ -84,8 +84,21 @@ func (m *model) forceCloseEditBatch() {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// When the files panel is focused, keyboard drives it.
+	// The unified search box, while open, must consume every key — BEFORE any
+	// pane-specific handling, otherwise typing a second letter while a files
+	// search is open would re-open a fresh search on the paneFiles branch (which
+	// is checked first) and reset the query to the single letter.
+	if m.search != nil {
+		return m, m.handleSearchKey(msg)
+	}
+	// When the files panel is focused, keyboard drives it. Printable input
+	// opens the unified search bar over the file list (the panel cannot be typed
+	// into, so any text here means "filter files").
 	if m.active == paneFiles {
+		if rs := printableRunes(msg); len(rs) > 0 {
+			m.openSearch(paneFiles, string(rs))
+			return m, nil
+		}
 		return m, m.panelKey(msg)
 	}
 	// Save-as input: capture a file name.
@@ -337,9 +350,26 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		if m.active == paneEdit {
 			m.handleEditKey(msg)
+		} else if m.active == paneResp {
+			// The response pane cannot be typed into, so any printable input
+			// means "search": open the search box pre-filled with the typed chars.
+			if rs := printableRunes(msg); len(rs) > 0 {
+				m.openSearch(paneResp, string(rs))
+			}
 		}
 	}
 	return m, nil
+}
+
+// printableRunes returns the printable (non-control) runes in a key message.
+func printableRunes(msg tea.KeyMsg) []rune {
+	var rs []rune
+	for _, r := range msg.Runes {
+		if r >= 0x20 && r != 0x7f {
+			rs = append(rs, r)
+		}
+	}
+	return rs
 }
 
 // knownModifierKey reports whether key is one of the modifier shortcuts the app

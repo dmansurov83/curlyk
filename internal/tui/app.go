@@ -80,6 +80,17 @@ type model struct {
 	// form editor popup (key=value body editor) opened from the actions menu
 	// (nil when closed)
 	form *formEditor
+	// search is the unified top-row search box open over a non-edit panel (the
+	// file list or the response). It consumes all keys while non-nil and is
+	// rendered on the top frame row. target says which panel it filters.
+	search *searchBox
+	// findMatches holds every (case-insensitive) match of the query on the
+	// response body lines: one slice per body line, matches at rune columns.
+	// Only meaningful while search targets the response pane.
+	findMatches [][]findMatch
+	// findCur is the flat index into the response matches of the currently
+	// selected match.
+	findCur int
 	// dirty tracks whether the editor has unsaved changes since the last save.
 	dirty bool
 	// autosaveDeadline is the time until which edits keep postponing the save.

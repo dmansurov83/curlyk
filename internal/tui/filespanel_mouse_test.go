@@ -26,7 +26,7 @@ func TestFilesPanelMouseSelect(t *testing.T) {
 	// Row 1 = "a.http" at y=headerHeight+4 (row 0 is "+ Новый файл").
 	res, _ := m.Update(tea.MouseMsg{
 		Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
-		X: fw / 2, Y: headerHeight + 4,
+		X: fw / 2, Y: headerHeight + 2,
 	})
 	r := res.(model)
 	if r.filesPanel == nil || r.filesPanel.sel != 1 {
@@ -55,7 +55,7 @@ func TestFilesPanelMouseSelectNew(t *testing.T) {
 	fw := m.filesWidth()
 	res, _ := m.Update(tea.MouseMsg{
 		Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
-		X: fw / 2, Y: headerHeight + 3, // row 0 = "+ Новый файл"
+		X: fw / 2, Y: headerHeight + 1, // row 0 = "+ Новый файл"
 	})
 	r := res.(model)
 	if r.filesPanel == nil || r.filesPanel.sel != 0 {

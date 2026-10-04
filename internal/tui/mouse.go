@@ -55,7 +55,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		if msg.X < half {
 			row, _, onIcon := mouseToEditorCell(&m, msg.X, msg.Y)
 			if row >= 0 && (onIcon || isRequestLine(m.ed.Lines(), row)) {
-				m.active = paneEdit
+				m.setActivePane(paneEdit)
 				m.ed.curRow, m.ed.curCol = row, 0
 				m.ed.EnsureVisible()
 				m.selActive = false
@@ -66,12 +66,12 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// Right-click on a selection copies it; without a selection in the
 		// editor it pastes (like Ctrl+V) at the clicked position.
 		if msg.X >= half {
-			m.active = paneResp
+			m.setActivePane(paneResp)
 			if m.respSelActive && m.respSelectedText() != "" {
 				m.copyRespSelection()
 			}
 		} else {
-			m.active = paneEdit
+			m.setActivePane(paneEdit)
 			if m.selActive && m.hasSelection() {
 				m.copySelection()
 				return m, nil
@@ -91,7 +91,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// rows jumps to that request; a click elsewhere dismisses the popup.
 		if m.nav != nil {
 			if i := m.navItemAt(y); i >= 0 && x < lay.half {
-				m.active = paneEdit
+				m.setActivePane(paneEdit)
 				m.activateNavItem(i)
 				return m, nil
 			}
@@ -101,7 +101,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// any click elsewhere in the editor pane dismisses the popup.
 		if m.actionMenu != nil {
 			if i := m.menuItemAt(y); i >= 0 && x < lay.half {
-				m.active = paneEdit
+				m.setActivePane(paneEdit)
 				cmd := m.activateMenuItem(i)
 				return m, cmd
 			}
@@ -109,7 +109,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		}
 		// files panel click (incl. its borders)
 		if x < lay.filesEnd {
-			m.active = paneFiles
+			m.setActivePane(paneFiles)
 			if row, ok := m.mouseToProfileRow(y); ok {
 				m.openProfile(m.filesPanel.profiles[row])
 				return m, nil
@@ -129,24 +129,24 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// scrollbar clicks
 		if x == half-2 {
 			// editor scrollbar column
-			m.active = paneEdit
+			m.setActivePane(paneEdit)
 			m.clickEditorScrollbar(y)
 			return m, nil
 		}
 		if x == m.width-2 {
 			// response scrollbar column
-			m.active = paneResp
+			m.setActivePane(paneResp)
 			m.clickRespScrollbar(y)
 			return m, nil
 		}
 		// copy-button row in the response pane: directly below the header rows.
 		if x >= half && y == headerHeight+1+m.respHeaderLines && m.response != "" {
-			m.active = paneResp
+			m.setActivePane(paneResp)
 			m.copyAllResponse()
 			return m, nil
 		}
 		if x < half {
-			m.active = paneEdit
+			m.setActivePane(paneEdit)
 			row, col, onIcon := mouseToEditorCell(&m, x, y)
 			if row >= 0 {
 				// double-click detection (within 300ms and same cell)
@@ -184,7 +184,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 				}
 			}
 		} else {
-			m.active = paneResp
+			m.setActivePane(paneResp)
 			m.selActive = false
 			// click in response pane: start a text selection there
 			if rrow, rcol, ok := mouseToRespCell(&m, x, y); ok {
@@ -422,7 +422,7 @@ func mouseToRespCell(m *model, x, y int) (row int, col int, ok bool) {
 // is on the search box, the panel border, or beyond the listed rows.
 func mouseToFilesRow(m *model, y int) (row int, ok bool) {
 	// Top border at y=headerHeight; search row + blank row follow, then rows.
-	firstRow := headerHeight + 3
+	firstRow := headerHeight + 1
 	idx := y - firstRow
 	if idx < 0 {
 		return 0, false
