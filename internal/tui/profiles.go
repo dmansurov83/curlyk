@@ -15,19 +15,19 @@ import (
 
 // profileSepStyle draws the horizontal separator above the profile section in
 // the left sidebar.
-var profileSepStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+var profileSepStyle lipgloss.Style
 
 // profileTitleStyle styles the "Профили" header of the profile section.
-var profileTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("245"))
+var profileTitleStyle lipgloss.Style
 
 // profileActiveStyle highlights the active profile name in the sidebar.
-var profileActiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
+var profileActiveStyle lipgloss.Style
 
 // profileSelStyle highlights the currently focused (but not active) profile row.
-var profileSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+var profileSelStyle lipgloss.Style
 
 // profileNewSelStyle highlights the "+ Новый профиль" action row when focused.
-var profileNewSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
+var profileNewSelStyle lipgloss.Style
 
 // profileFilesInDir lists *.profile filenames in path (sorted). These are the
 // available environment profiles whose @var declarations feed request variables.

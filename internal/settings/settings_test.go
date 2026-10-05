@@ -12,7 +12,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 	SetAppSettingsPath(p)
 	defer SetAppSettingsPath("appsettings.yml")
 
-	s := Settings{LastOpenedFile: "req.http", SessionFile: "sess.http", CursorRow: 12, CursorCol: 4, EditorScroll: 5}
+	s := Settings{LastOpenedFile: "req.http", SessionFile: "sess.http", CursorRow: 12, CursorCol: 4, EditorScroll: 5, Theme: "darkula"}
 	if err := s.Save(); err != nil {
 		t.Fatal(err)
 	}
@@ -22,6 +22,9 @@ func TestSettingsRoundTrip(t *testing.T) {
 	}
 	if got.CursorRow != 12 || got.CursorCol != 4 || got.EditorScroll != 5 {
 		t.Errorf("cursor not persisted: row=%d col=%d scroll=%d", got.CursorRow, got.CursorCol, got.EditorScroll)
+	}
+	if got.Theme != "darkula" {
+		t.Errorf("theme not persisted: got %q", got.Theme)
 	}
 }
 

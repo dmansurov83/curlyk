@@ -11,22 +11,22 @@ import (
 )
 
 // runIconStyle styles the run ▶ icon in the editor gutter.
-var runIconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+var runIconStyle lipgloss.Style
 
 // iconBlockStyle is the run icon rendered as a block when the cursor is on it.
-var iconBlockStyle = lipgloss.NewStyle().Background(lipgloss.Color("63")).Foreground(lipgloss.Color("15")).Bold(true)
+var iconBlockStyle lipgloss.Style
 
 // numCurStyle styles the line number on the current cursor line.
-var numCurStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
+var numCurStyle lipgloss.Style
 
 // numMutedStyle styles the line number on non-cursor lines.
-var numMutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+var numMutedStyle lipgloss.Style
 
 // scrollbarThumbStyle draws the scrollbar thumb.
-var scrollbarThumbStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+var scrollbarThumbStyle lipgloss.Style
 
 // scrollbarTrackStyle draws the scrollbar track.
-var scrollbarTrackStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+var scrollbarTrackStyle lipgloss.Style
 
 // renderHeader draws the top bar with the current file name. A dirty marker is
 // appended to the name when the buffer has unsaved changes.
@@ -40,8 +40,8 @@ func (m *model) renderHeader(width int) string {
 		txt += i18n.T("header.profile", strings.TrimSuffix(filepath.Base(m.profile), ".profile"))
 	}
 	st := lipgloss.NewStyle().
-		Background(lipgloss.Color("235")).
-		Foreground(lipgloss.Color("252")).
+		Background(lipgloss.Color(headerBgColor)).
+		Foreground(lipgloss.Color(headerFgColor)).
 		Width(width).
 		Render(txt)
 	return st
@@ -56,11 +56,13 @@ func (m *model) currentFileName() string {
 	return filepath.Base(m.filePath)
 }
 
+// borderColor returns the pane border color depending on whether the pane is
+// active. The colors are resolved from the current scheme on each call.
 func borderColor(active bool) string {
 	if active {
-		return "212"
+		return borderActiveColor
 	}
-	return "240"
+	return borderIdleColor
 }
 
 // menuReserve returns the number of editor content rows consumed by the open
@@ -288,8 +290,8 @@ func (m model) renderStatus(width int) string {
 		st = string(r[:width])
 	}
 	return lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("252")).
+		Background(lipgloss.Color(statusBgColor)).
+		Foreground(lipgloss.Color(statusFgColor)).
 		Width(width).
 		Render(" " + st)
 }

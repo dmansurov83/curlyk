@@ -16,12 +16,12 @@ import (
 // truncate first, colorize last.
 
 var (
-	jsonKeyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))
-	jsonStringStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
-	jsonNumberStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
-	jsonBoolStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
-	jsonNullStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
-	jsonPunctStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	jsonKeyStyle    lipgloss.Style
+	jsonStringStyle lipgloss.Style
+	jsonNumberStyle lipgloss.Style
+	jsonBoolStyle   lipgloss.Style
+	jsonNullStyle   lipgloss.Style
+	jsonPunctStyle  lipgloss.Style
 )
 
 type jsonTokKind int
@@ -200,7 +200,7 @@ func jsonColorizeLine(line string, selStart, selEnd int, hasSel bool) string {
 			b.WriteString(st.Render(string(runes[:relS])))
 		}
 		if relE > relS {
-			b.WriteString(st.Background(lipgloss.Color("24")).Render(string(runes[relS:relE])))
+			b.WriteString(st.Background(lipgloss.Color(curScheme.JSONSelBg)).Render(string(runes[relS:relE])))
 		}
 		if relE < len(runes) {
 			b.WriteString(st.Render(string(runes[relE:])))

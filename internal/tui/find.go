@@ -30,8 +30,8 @@ type findMatch struct {
 
 // findStyle highlights all non-current matches; findCurStyle highlights the
 // currently selected one distinctly.
-var findStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("232")).Background(lipgloss.Color("220"))
-var findCurStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Background(lipgloss.Color("196"))
+var findStyle lipgloss.Style
+var findCurStyle lipgloss.Style
 
 // openSearch opens the unified search box targeting `target` (the file list or
 // the response body), pre-filled with initial text.
@@ -405,8 +405,8 @@ func (m *model) setActivePane(p pane) {
 func (m *model) searchBarRow(width int) string {
 	label := m.searchLabel()
 	return lipgloss.NewStyle().
-		Background(lipgloss.Color("235")).
-		Foreground(lipgloss.Color("222")).
+		Background(lipgloss.Color(searchBarBgColor)).
+		Foreground(lipgloss.Color(searchBarFgColor)).
 		Width(width).
 		Render(truncateWidth(label, width))
 }

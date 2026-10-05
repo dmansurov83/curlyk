@@ -158,7 +158,7 @@ func (d *dialogBox) buttonTitleRow() string {
 }
 
 // dialogTitleStyle renders the dialog title line.
-var dialogTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
+var dialogTitleStyle lipgloss.Style
 
 // dialogFrame renders the bordered frame block for the open dialog (without
 // centering). Returns "" when no dialog is open.
@@ -171,7 +171,7 @@ func (m *model) dialogFrame() string {
 	inner := strings.Join(d.rows(), "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("212")).
+		BorderForeground(lipgloss.Color(dialogBorderColor)).
 		Width(contentW+2*dialogPad).
 		Padding(0, dialogPad).
 		Render(inner)

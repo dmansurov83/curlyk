@@ -33,21 +33,21 @@ func stripANSI(s string) string {
 }
 
 var (
-	methodStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
-	urlStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
-	httpVerStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	headerNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("80"))
-	headerValStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("188"))
-	bodyStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("186")).Faint(true)
-	commentStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
-	varStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
-	separatorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
-	optionStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("178")).Bold(true)
-	otherStyle      = lipgloss.NewStyle()
+	methodStyle     lipgloss.Style
+	urlStyle        lipgloss.Style
+	httpVerStyle    lipgloss.Style
+	headerNameStyle lipgloss.Style
+	headerValStyle  lipgloss.Style
+	bodyStyle       lipgloss.Style
+	commentStyle    lipgloss.Style
+	varStyle        lipgloss.Style
+	separatorStyle  lipgloss.Style
+	optionStyle     lipgloss.Style
+	otherStyle      lipgloss.Style
 	// cursorStyle is the visible block cursor (reverse video, high contrast).
-	cursorStyle = lipgloss.NewStyle().Background(lipgloss.Color("63")).Foreground(lipgloss.Color("15")).Bold(true)
+	cursorStyle lipgloss.Style
 	// selStyle highlights a selected range (dark blue background).
-	selStyle = lipgloss.NewStyle().Background(lipgloss.Color("24"))
+	selStyle lipgloss.Style
 )
 
 // col is a styled segment over a byte range of the source line.

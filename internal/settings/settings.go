@@ -31,6 +31,10 @@ type Settings struct {
 	// (a *.profile file in the working directory whose @var declarations are
 	// merged into request variables). Empty means no profile is active.
 	ActiveProfile string `yaml:"active_profile,omitempty"`
+	// Theme is the name of the active color scheme: a builtin ("default",
+	// "darkula" or "light") or a custom scheme file `themes/<name>.theme`.
+	// Empty means the default color scheme.
+	Theme string `yaml:"theme,omitempty"`
 }
 
 // CursorPos is a remembered cursor position for a single file.

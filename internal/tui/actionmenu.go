@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
+	"github.com/user/curlyk/internal/settings"
 )
 
 // menuItem is one selectable entry in the request action popup.
@@ -30,14 +31,14 @@ type actionMenu struct {
 }
 
 // menuSelStyle highlights the currently selected menu item.
-var menuSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("63"))
+var menuSelStyle lipgloss.Style
 
 // menuHoverStyle highlights a menu item under the mouse pointer (distinct from
 // the selected item).
-var menuHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("60"))
+var menuHoverStyle lipgloss.Style
 
 // menuNormalStyle is the base item style.
-var menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("237"))
+var menuNormalStyle lipgloss.Style
 
 // menuItems builds the selectable actions for the request popup.
 func menuItems() []menuItem {
@@ -45,7 +46,42 @@ func menuItems() []menuItem {
 		{label: i18n.T("menu.run"), run: func(mm *model) tea.Cmd { return mm.runRequest() }},
 		{label: i18n.T("menu.copyCurl"), run: func(mm *model) tea.Cmd { mm.copyAsCurl(); return nil }},
 		{label: i18n.T("menu.formatJson"), run: func(mm *model) tea.Cmd { mm.formatRequestJSON(); return nil }},
+		{label: i18n.T("menu.theme"), run: func(mm *model) tea.Cmd { return mm.beginThemePicker() }},
 	}
+}
+
+// themePickerMenu builds the popup listing every selectable scheme (builtin and
+// custom), with the active one highlighted next to its name.
+func themePickerMenu() *actionMenu {
+	names := schemeNames()
+	var items []menuItem
+	for _, name := range names {
+		name := name
+		label := displayThemeName(name)
+		if name == currentSchemeName() {
+			label = "✓ " + label
+		}
+		items = append(items, menuItem{label: label, run: func(mm *model) tea.Cmd {
+			applyTheme(name)
+			mm.status = i18n.T("status.theme", displayThemeName(name))
+			s := settings.Load()
+			s.Theme = name
+			_ = s.Save()
+			return nil
+		}})
+	}
+	return &actionMenu{anchorRow: 0, sel: 0, items: items}
+}
+
+// beginThemePicker replaces the currently open action popup (if any) with a
+// scheme-selection popup listing all available schemes, anchored at the current
+// cursor line. It returns nil; the new popup closes on selection or Esc, like
+// any action menu.
+func (m *model) beginThemePicker() tea.Cmd {
+	pick := themePickerMenu()
+	pick.anchorRow = m.ed.curRow
+	m.actionMenu = pick
+	return nil
 }
 
 // beginActionMenu opens the action popup for the request under the cursor.

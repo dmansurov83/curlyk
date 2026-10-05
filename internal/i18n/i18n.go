@@ -39,6 +39,11 @@ var catalogs = map[string]map[string]string{
 		"status.lang":         "Язык: %s",
 		"lang.ru":             "Русский",
 		"lang.en":             "Английский",
+		"status.theme":        "Тема: %s",
+		"theme.default":       "Стандартная",
+		"theme.darkula":       "Darkula",
+		"theme.light":         "Светлая",
+		"theme.templateWritten": "Шаблон темы записан: %s",
 
 		// help panel (right pane, shown while there is no response yet)
 		"help.title":    "Горячие клавиши",
@@ -58,6 +63,7 @@ var catalogs = map[string]map[string]string{
 		"help.new":      "Новый файл",
 		"help.pane":     "Переключить панель",
 		"help.lang":     "Переключить язык (ru ⇄ en)",
+		"help.theme":    "Цветовая схема (Ctrl+] / Ctrl+\\)",
 		"help.debug":    "Дамп состояния в debug.txt",
 		"help.words":    "Перемещение по словам",
 		"help.home":     "Иконка запуска (▶) / курсор",
@@ -110,6 +116,7 @@ var catalogs = map[string]map[string]string{
 		"menu.copyCurl":        "⧉ Копировать как cURL",
 		"menu.formatJson":      "{} Форматировать JSON",
 		"menu.formBody":        "◇ Тело как ключ=значение (&)",
+		"menu.theme":           "◩ Цветовая схема",
 		"err.noBodyFormat":     "Нет тела запроса для форматирования",
 		"err.notJson":          "Тело запроса не является валидным JSON",
 		"err.formatJson":       "Ошибка форматирования JSON: %s",
@@ -177,6 +184,12 @@ var catalogs = map[string]map[string]string{
 		"status.lang":         "Language: %s",
 		"lang.ru":             "Russian",
 		"lang.en":             "English",
+		"status.theme":        "Theme: %s",
+		"theme.default":       "Default",
+		"theme.darkula":       "Darkula",
+		"theme.light":         "Light",
+		"theme.templateWritten": "Theme template written: %s",
+		"menu.theme":          "◩ Color scheme",
 
 		// help panel (right pane, shown while there is no response yet)
 		"help.title":    "Hotkeys",
@@ -196,6 +209,7 @@ var catalogs = map[string]map[string]string{
 		"help.new":      "New file",
 		"help.pane":     "Switch pane",
 		"help.lang":     "Switch language (ru ⇄ en)",
+		"help.theme":    "Color scheme (Ctrl+] / Ctrl+\\)",
 		"help.debug":    "Dump UI state to debug.txt",
 		"help.words":    "Move by word",
 		"help.home":     "Run icon (▶) / cursor",

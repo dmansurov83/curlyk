@@ -25,8 +25,8 @@ func TestEnterOpensActionMenuOnRequestLine(t *testing.T) {
 	if mm.actionMenu.anchorRow != 1 {
 		t.Errorf("menu anchor=%d want 1", mm.actionMenu.anchorRow)
 	}
-	if len(mm.actionMenu.items) != 3 {
-		t.Errorf("menu items=%d want 3", len(mm.actionMenu.items))
+	if len(mm.actionMenu.items) != 4 {
+		t.Errorf("menu items=%d want 4", len(mm.actionMenu.items))
 	}
 	// lines unchanged (open menu, not newline). "### x\nGET http://x/1\n" → 3
 	if len(mm.ed.Lines()) != 3 {

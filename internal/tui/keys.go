@@ -183,6 +183,14 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+l":
 		m.toggleLanguage()
 		return m, nil
+	case "ctrl+]", "ctrl+\\":
+		// Cycle the color scheme (Ctrl+\ = back, Ctrl+] = forward).
+		if msg.String() == "ctrl+\\" {
+			m.cycleTheme(-1)
+		} else {
+			m.cycleTheme(1)
+		}
+		return m, nil
 	case "ctrl+g":
 		// Navigation by request name/id works from any pane and returns focus
 		// to the editor on jump.
@@ -348,7 +356,7 @@ func knownModifierKey(key string) bool {
 	switch key {
 	case "ctrl+c", "ctrl+x", "ctrl+v", "ctrl+z", "ctrl+shift+z",
 		"ctrl+d", "ctrl+k", "ctrl+l", "ctrl+g", "ctrl+enter", "ctrl+r", "ctrl+y",
-		"ctrl+s", "ctrl+n", "ctrl+a",
+		"ctrl+s", "ctrl+n", "ctrl+a", "ctrl+]", "ctrl+\\",
 		"ctrl+left", "ctrl+right", "ctrl+home", "ctrl+end",
 		"alt+left", "alt+right", "alt+home":
 		return true

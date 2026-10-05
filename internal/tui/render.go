@@ -8,10 +8,10 @@ import (
 )
 
 // fileSelStyle highlights the selected file row in the sidebar.
-var fileSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
+var fileSelStyle lipgloss.Style
 
 // fileHoverStyle highlights the file row under the mouse pointer in the sidebar.
-var fileHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Background(lipgloss.Color("238"))
+var fileHoverStyle lipgloss.Style
 
 func (m model) View() string {
 	if m.width == 0 {

@@ -195,6 +195,7 @@ func New(args Args) tea.Model {
 	// restore cursor / scroll / pane from settings
 	s := settings.Load()
 	i18n.SetLocale(i18n.Resolve(s.Lang))
+	applyTheme(s.Theme)
 	if s.CursorRow >= 0 && s.CursorRow < len(ed.Lines()) {
 		ed.curRow = s.CursorRow
 	}

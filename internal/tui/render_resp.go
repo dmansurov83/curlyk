@@ -9,7 +9,7 @@ import (
 
 func (m *model) renderResponse(width, height int) string {
 	if m.state == stateRunning {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render(i18n.T("status.executing"))
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(executingColor)).Render(i18n.T("status.executing"))
 	}
 	if m.response == "" || m.helpVisible {
 		// Show the hotkey reference inside the right pane: automatically when
@@ -150,9 +150,9 @@ func copyButtonRow(contentW int) string {
 	label := i18n.T("resp.copyButton")
 	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
 	btn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
+		Foreground(lipgloss.Color(copyBtnFgColor)).
 		Bold(true).
-		Background(lipgloss.Color("240")).
+		Background(lipgloss.Color(copyBtnBgColor)).
 		Render(full)
 	return btn
 }
@@ -163,9 +163,9 @@ func copyButtonRowHover(contentW int) string {
 	label := i18n.T("resp.copyButton")
 	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
 	btn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).
+		Foreground(lipgloss.Color(copyHoverFgColor)).
 		Bold(true).
-		Background(lipgloss.Color("30")).
+		Background(lipgloss.Color(copyHoverBgColor)).
 		Render(full)
 	return btn
 }

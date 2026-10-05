@@ -38,6 +38,7 @@ var helpKeyCombos = []helpEntry{
 	{key: "Ctrl+N", descKey: "help.new"},
 	{key: "Tab", descKey: "help.pane"},
 	{key: "Ctrl+L", descKey: "help.lang"},
+	{key: "Ctrl+] / Ctrl+\\", descKey: "help.theme"},
 	{key: "Ctrl+D", descKey: "help.debug"},
 	{key: "Ctrl+←/→", descKey: "help.words"},
 	{key: "Home", descKey: "help.home"},
@@ -48,9 +49,9 @@ var helpKeyCombos = []helpEntry{
 
 // helpKeyStyle highlights the key combination; helpDescStyle renders the muted
 // description to its right.
-var helpKeyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
-var helpDescStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-var helpTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
+var helpKeyStyle lipgloss.Style
+var helpDescStyle lipgloss.Style
+var helpTitleStyle lipgloss.Style
 
 // helpPanelLines renders the key-reference block for the right pane. width/height
 // are the pane interior dimensions (excluding borders); scroll is the vertical
