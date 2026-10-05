@@ -139,6 +139,7 @@ func rebuildStyles() {
 	otherStyle = lipgloss.NewStyle()
 	cursorStyle = lipgloss.NewStyle().Background(lipgloss.Color(curScheme.CursorBg)).Foreground(lipgloss.Color(curScheme.CursorFg)).Bold(true)
 	selStyle = lipgloss.NewStyle().Background(lipgloss.Color(curScheme.SelectionBg))
+	selStyleOnlyBg = lipgloss.NewStyle().Background(lipgloss.Color(curScheme.JSONSelBg))
 
 	// JSON colors (jsoncolor.go)
 	jsonKeyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(curScheme.JSONKey))

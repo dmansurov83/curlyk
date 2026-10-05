@@ -48,6 +48,9 @@ var (
 	cursorStyle lipgloss.Style
 	// selStyle highlights a selected range (dark blue background).
 	selStyle lipgloss.Style
+	// selStyleOnlyBg is the selection background alone (no foreground), used to
+	// fill JSON body regions between colored tokens during selection.
+	selStyleOnlyBg lipgloss.Style
 )
 
 // col is a styled segment over a byte range of the source line.
@@ -62,9 +65,19 @@ type col struct {
 // highlightLine produces ANSI-styled text for one source line given its tokens.
 // The raw line is preserved; tokens only describe regions to color.
 func highlightLine(raw string, toks []httpfile.Token) string {
+	return highlightLineJSON(raw, toks, nil)
+}
+
+// highlightLineJSON renders a line with token highlighting plus optional
+// whole-line JSON cols for a body line. When jsonCols is non-nil it replaces
+// the single faint body-token col with per-token JSON syntax coloring.
+func highlightLineJSON(raw string, toks []httpfile.Token, jsonCols []col) string {
 	var cols []col
 	for _, tk := range toks {
 		if tk.Type == httpfile.TokOther {
+			continue
+		}
+		if len(jsonCols) > 0 && tk.Type == httpfile.TokBodyText {
 			continue
 		}
 		start, end := tk.Start, tk.End
@@ -84,6 +97,7 @@ func highlightLine(raw string, toks []httpfile.Token) string {
 		}
 		cols = append(cols, c)
 	}
+	cols = append(cols, jsonCols...)
 	if len(cols) == 0 {
 		return raw
 	}
@@ -143,6 +157,13 @@ func renderSegment(c col, text string) string {
 // The line is first syntax-highlighted WITHOUT ANSI markers being broken by the
 // cursor: we place the cursor block on the raw text at the right rune boundary.
 func renderLineWithCursor(raw string, col int, toks []httpfile.Token) string {
+	return renderLineWithCursorJSON(raw, col, toks, nil)
+}
+
+// renderLineWithCursorJSON is renderLineWithCursor with precomputed whole-line
+// JSON cols (nil when the line is not JSON / not a body line). Passing the cols
+// from the full line keeps JSON coloring correct across the cursor split.
+func renderLineWithCursorJSON(raw string, col int, toks []httpfile.Token, jsonCols []col) string {
 	runes := []rune(raw)
 	if col < 0 {
 		col = 0
@@ -159,12 +180,12 @@ func renderLineWithCursor(raw string, col int, toks []httpfile.Token) string {
 	}
 
 	// left part: raw[:cursorRuneStart]
-	leftStyled := renderRegion(raw, 0, cursorRuneStart, toks)
+	leftStyled := renderRegionJSON(raw, 0, cursorRuneStart, toks, jsonCols)
 	// cursor cell: visible block (on a character or at EOL)
 	cursorCell := cursorStyle.Render(cursorCh)
 	// right part after the cursor rune
 	rightStart := cursorRuneStart + len([]byte(cursorCh))
-	rightStyled := renderRegion(raw, rightStart, len(raw), toks)
+	rightStyled := renderRegionJSON(raw, rightStart, len(raw), toks, jsonCols)
 
 	return leftStyled + cursorCell + rightStyled
 }
@@ -184,6 +205,15 @@ func byteLenOfRunes(s string, n int) int {
 // renderRegion renders raw[p1:p2] (byte range) with token highlighting,
 // clipping tokens that overlap the region. p1/p2 are byte offsets into raw.
 func renderRegion(raw string, p1, p2 int, toks []httpfile.Token) string {
+	return renderRegionJSON(raw, p1, p2, toks, nil)
+}
+
+// renderRegionJSON renders raw[p1:p2] with token highlighting plus optional
+// whole-line JSON cols. When jsonCols is non-nil (precomputed from the full
+// line), the JSON cols are clipped to [p1,p2) and painted instead of the body
+// style, keeping JSON coloring correct across cursor/selection splits. p1/p2
+// are byte offsets into raw.
+func renderRegionJSON(raw string, p1, p2 int, toks []httpfile.Token, jsonCols []col) string {
 	if p2 <= p1 {
 		return ""
 	}
@@ -192,6 +222,12 @@ func renderRegion(raw string, p1, p2 int, toks []httpfile.Token) string {
 	var cols []col
 	for _, tk := range toks {
 		if tk.Type == httpfile.TokOther {
+			continue
+		}
+		// When whole-line JSON cols are present they take over the body line, so
+		// the single body-token col must not be added (it spans the whole line
+		// and would win the overlap dedup, suppressing the JSON colors).
+		if len(jsonCols) > 0 && tk.Type == httpfile.TokBodyText {
 			continue
 		}
 		st := tk.Start
@@ -215,6 +251,25 @@ func renderRegion(raw string, p1, p2 int, toks []httpfile.Token) string {
 			c.vars = tk.Vars
 		}
 		cols = append(cols, c)
+	}
+	// Fold in whole-line JSON cols (clipped to the region), which replace the
+	// single body-token col with per-token syntax coloring.
+	for _, jc := range jsonCols {
+		st := jc.start
+		en := jc.end
+		if en <= p1 || st >= p2 {
+			continue
+		}
+		if st < p1 {
+			st = p1
+		}
+		if en > p2 {
+			en = p2
+		}
+		if en <= st {
+			continue
+		}
+		cols = append(cols, col{start: st - p1, end: en - p1, style: jc.style})
 	}
 	if len(cols) == 0 {
 		return seg
@@ -244,10 +299,68 @@ func renderRegion(raw string, p1, p2 int, toks []httpfile.Token) string {
 	return sb.String()
 }
 
-// renderLineSel renders a source line with a selection range highlighted.
+// renderLineSelJSON renders a source line with a selection range highlighted.
 // selStart/selEnd are rune indices into the line; sel indicates whether the
 // range applies to this line at all.
 func renderLineSel(raw string, toks []httpfile.Token, selStart, selEnd int) string {
+	return renderLineSelJSON(raw, toks, selStart, selEnd, nil)
+}
+
+// renderRegionJSONSel renders raw[p1:p2] as a selection: every JSON token in the
+// region keeps its foreground color merged with the selection background, and
+// gaps between tokens get the selection background alone. Merging the background
+// into each token's style (instead of wrapping the whole region in selStyle)
+// avoids the mid-region reset that would otherwise drop the selection at every
+// JSON token boundary. p1/p2 are byte offsets into raw.
+func renderRegionJSONSel(raw string, p1, p2 int, toks []httpfile.Token, jsonCols []col) string {
+	if p2 <= p1 {
+		return ""
+	}
+	seg := raw[p1:p2]
+	selBg := lipgloss.Color(curScheme.JSONSelBg)
+	// Collect JSON cols clipped to the region.
+	var cols []col
+	for _, jc := range jsonCols {
+		st := jc.start
+		en := jc.end
+		if en <= p1 || st >= p2 {
+			continue
+		}
+		if st < p1 {
+			st = p1
+		}
+		if en > p2 {
+			en = p2
+		}
+		if en <= st {
+			continue
+		}
+		// Merge the selection background into the token's own style so the fg and
+		// bg are emitted as a single SGR with no intervening reset.
+		merged := jc.style.Background(selBg)
+		cols = append(cols, col{start: st - p1, end: en - p1, style: merged})
+	}
+	slices.SortStableFunc(cols, func(a, b col) int { return a.start - b.start })
+	var sb strings.Builder
+	pos := 0
+	for _, c := range cols {
+		if c.start > pos {
+			// gap: selection background alone
+			sb.WriteString(selStyleOnlyBg.Render(seg[pos:c.start]))
+		}
+		if c.start >= c.end || c.end > len(seg) {
+			continue
+		}
+		sb.WriteString(c.style.Render(seg[c.start:c.end]))
+		pos = c.end
+	}
+	if pos < len(seg) {
+		sb.WriteString(selStyleOnlyBg.Render(seg[pos:]))
+	}
+	return sb.String()
+}
+
+func renderLineSelJSON(raw string, toks []httpfile.Token, selStart, selEnd int, jsonCols []col) string {
 	runes := []rune(raw)
 	if selStart < 0 {
 		selStart = 0
@@ -256,29 +369,32 @@ func renderLineSel(raw string, toks []httpfile.Token, selStart, selEnd int) stri
 		selEnd = len(runes)
 	}
 	if selEnd <= selStart {
-		return highlightLine(raw, toks)
+		return highlightLineJSON(raw, toks, jsonCols)
 	}
 
 	sStartB := byteLenOfRunes(raw, selStart)
 	sEndB := byteLenOfRunes(raw, selEnd)
 
 	// before selection
-	before := renderRegion(raw, 0, sStartB, toks)
+	before := renderRegionJSON(raw, 0, sStartB, toks, jsonCols)
 	// selection
-	sel := renderRegion(raw, sStartB, sEndB, toks)
-	selWrapped := selStyle.Render(sel)
+	sel := renderRegionJSONSel(raw, sStartB, sEndB, toks, jsonCols)
 	// after
-	after := renderRegion(raw, sEndB, len(raw), toks)
+	after := renderRegionJSON(raw, sEndB, len(raw), toks, jsonCols)
 
-	return before + selWrapped + after
+	return before + sel + after
 }
 
 // renderLineWithCursorSel renders the active line with the block cursor and,
 // when selStart<selEnd, a selection range. The cursor block sits at col.
 // We build the line by walking rune indices and choosing a background per cell.
 func renderLineWithCursorSel(raw string, col int, toks []httpfile.Token, selStart, selEnd int, hasSel bool) string {
+	return renderLineWithCursorSelJSON(raw, col, toks, selStart, selEnd, hasSel, nil)
+}
+
+func renderLineWithCursorSelJSON(raw string, col int, toks []httpfile.Token, selStart, selEnd int, hasSel bool, jsonCols []col) string {
 	if !hasSel {
-		return renderLineWithCursor(raw, col, toks)
+		return renderLineWithCursorJSON(raw, col, toks, jsonCols)
 	}
 	runes := []rune(raw)
 	if selStart < 0 {
@@ -336,15 +452,21 @@ func renderLineWithCursorSel(raw string, col int, toks []httpfile.Token, selStar
 	var b strings.Builder
 	for _, rg := range segs {
 		segText := string(runes[rg.start:rg.end])
-		styled := renderRegion(raw, byteLenOfRunes(raw, rg.start), byteLenOfRunes(raw, rg.end), toks)
+		p1 := byteLenOfRunes(raw, rg.start)
+		p2 := byteLenOfRunes(raw, rg.end)
 		switch rg.kind {
 		case 0:
-			b.WriteString(styled)
+			b.WriteString(renderRegionJSON(raw, p1, p2, toks, jsonCols))
 		case 1:
-			b.WriteString(selStyle.Render(styled))
-		case 2:
-			b.WriteString(cursorStyle.Render(segText))
-		case 3:
+			// Selection: merge the selection bg into each JSON token so no reset
+			// drops the highlight mid-way; fall back to wrapping in selStyle for
+			// non-JSON lines.
+			if len(jsonCols) > 0 {
+				b.WriteString(renderRegionJSONSel(raw, p1, p2, toks, jsonCols))
+			} else {
+				b.WriteString(selStyle.Render(renderRegionJSON(raw, p1, p2, toks, jsonCols)))
+			}
+		case 2, 3:
 			b.WriteString(cursorStyle.Render(segText))
 		}
 	}

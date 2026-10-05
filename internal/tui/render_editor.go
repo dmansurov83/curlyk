@@ -188,7 +188,16 @@ func (m *model) renderEditor(width int) string {
 		// Byte offset of the window start in the original line, for token re-basing.
 		winStartB := byteLenOfRunes(full, winStart)
 		winEndB := byteLenOfRunes(full, winEnd)
-		toks := shiftTokensForWindow(lineToksFor(i, toks), winStartB, winEndB)
+		lineToks := lineToksFor(i, toks)
+		// If this line is a JSON request body, lex it once and shift the JSON
+		// cols into the window so cursor/selection splits keep the colors.
+		var jsonCols []col
+		if isBodyTokenLine(lineToks) {
+			if jc, ok := jsonColsForLine(full); ok {
+				jsonCols = shiftJSONColsForWindow(jc, winStartB, winEndB)
+			}
+		}
+		toks := shiftTokensForWindow(lineToks, winStartB, winEndB)
 
 		// Apply syntax highlight and (on the cursor line) a visible block cursor,
 		// all on the windowed substring, with offsets shifted by winStart.
@@ -215,7 +224,7 @@ func (m *model) renderEditor(width int) string {
 					hasSel = false
 				}
 			}
-			rendered = renderLineWithCursorSel(winLine, cw, toks, ws, we, hasSel)
+			rendered = renderLineWithCursorSelJSON(winLine, cw, toks, ws, we, hasSel, jsonCols)
 		} else {
 			if hasSel {
 				// Clamp the selection range to the visible window.
@@ -228,9 +237,9 @@ func (m *model) renderEditor(width int) string {
 					we = winEnd - winStart
 				}
 				lts := toks
-				rendered = renderLineSel(winLine, lts, ws, we)
+				rendered = renderLineSelJSON(winLine, lts, ws, we, jsonCols)
 			} else if lts := toks; len(lts) > 0 {
-				rendered = highlightLine(winLine, lts)
+				rendered = highlightLineJSON(winLine, lts, jsonCols)
 			} else {
 				rendered = winLine
 			}

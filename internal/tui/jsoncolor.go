@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/user/curlyk/internal/httpfile"
 )
 
 // JSON syntax coloring for the response body pane. Kept in its own file so
@@ -159,6 +160,85 @@ func jsonTokStyle(kind jsonTokKind) lipgloss.Style {
 	default:
 		return lipgloss.NewStyle()
 	}
+}
+
+// isJSONBodyStart reports whether a body line plausibly starts a JSON value, so
+// that it is coloured with JSON syntax instead of the generic faint body style.
+func isJSONBodyStart(line string) bool {
+	t := strings.TrimLeft(line, " \t")
+	if t == "" {
+		return false
+	}
+	switch t[0] {
+	case '{', '[', '"', '}', ']', ',':
+		return true
+	}
+	return false
+}
+
+// jsonColsForLine lexes a whole raw body line as JSON and returns syntax-colored
+// cols with byte offsets relative to line, or ok=false when the line is not
+// recognised as JSON so the caller can fall back to the generic body style.
+// Lexing the full line once keeps JSON coloring correct when the line is later
+// split by the cursor or a selection: clipping full-line cols is position-safe,
+// whereas re-lexing an arbitrary fragment would mislabel it. Whitespace and
+// unrecognised "other" fragments are left uncolored.
+func jsonColsForLine(line string) ([]col, bool) {
+	if !isJSONBodyStart(line) {
+		return nil, false
+	}
+	toks := markJSONKeys(line, lexJSONLine(line))
+	if len(toks) == 0 {
+		return nil, false
+	}
+	var cols []col
+	for _, t := range toks {
+		if t.kind == jsonTokWS || t.kind == jsonTokOther {
+			continue
+		}
+		cols = append(cols, col{
+			start: byteLenOfRunes(line, t.start),
+			end:   byteLenOfRunes(line, t.end),
+			style: jsonTokStyle(t.kind),
+		})
+	}
+	return cols, len(cols) > 0
+}
+
+// shiftJSONColsForWindow re-bases whole-line JSON cols (byte offsets into the
+// full line) onto a windowed substring starting at byte offset byteStart,
+// keeping only cols that intersect the window [byteStart, byteEnd).
+func shiftJSONColsForWindow(cols []col, byteStart, byteEnd int) []col {
+	var out []col
+	for _, c := range cols {
+		st, en := c.start, c.end
+		if en <= byteStart || st >= byteEnd {
+			continue
+		}
+		if st < byteStart {
+			st = byteStart
+		}
+		if en > byteEnd {
+			en = byteEnd
+		}
+		if en <= st {
+			continue
+		}
+		out = append(out, col{start: st - byteStart, end: en - byteStart, style: c.style})
+	}
+	return out
+}
+
+// isBodyTokenLine reports whether a line's (unshifted) tokens include a body
+// text token, i.e. the line belongs to a request body and is eligible for JSON
+// syntax coloring.
+func isBodyTokenLine(toks []httpfile.Token) bool {
+	for _, tk := range toks {
+		if tk.Type == httpfile.TokBodyText {
+			return true
+		}
+	}
+	return false
 }
 
 // jsonColorizeLine renders a single plain response-body line with JSON syntax
