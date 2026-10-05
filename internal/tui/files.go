@@ -308,14 +308,25 @@ func (m *model) saveBuffer() {
 	m.status = i18n.T("status.saved", filepath.Base(target))
 }
 
-// beginSaveAs opens an input to type a file name for an unnamed buffer.
+// beginSaveAs opens a modal dialog to type a file name for an unnamed buffer.
 func (m *model) beginSaveAs() {
 	ti := textinput.New()
 	ti.Placeholder = i18n.T("placeholder.filename")
 	ti.Focus()
 	ti.Width = 40
-	m.saveAs = &ti
-	m.active = paneEdit
+	m.dialog = m.newInputDialog(i18n.T("saveAs.title"), &ti, []dialogButton{
+		{label: i18n.T("saveAs.cancel"), action: dialogCancel},
+		{label: i18n.T("saveAs.save"), action: dialogConfirm, defaultBtn: true},
+	}, func(mm *model, act dialogAction, input string) tea.Cmd {
+		if act != dialogConfirm {
+			return nil
+		}
+		name := strings.TrimSpace(input)
+		if name != "" {
+			mm.saveBufferAs(name)
+		}
+		return nil
+	})
 }
 
 // saveBufferAs saves the editor to the given file name and binds it.

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
@@ -69,10 +68,6 @@ type model struct {
 	respHScroll int
 	// left-hand file explorer panel (nil when not initialised)
 	filesPanel *filesPanel
-	// save-as input state (non-nil while asking for a file name)
-	saveAs *textinput.Model
-	// profileAs input state (non-nil while asking for a new profile name)
-	profileAs *textinput.Model
 	// action popup shown on Enter over a request line (nil when inactive)
 	actionMenu *actionMenu
 	// navigation popup shown on Ctrl+G (nil when closed)

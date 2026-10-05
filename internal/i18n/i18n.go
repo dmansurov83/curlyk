@@ -73,12 +73,14 @@ var catalogs = map[string]map[string]string{
 
 		// render.go
 		"loading.editor": "Загрузка редактора...",
-		"saveAs.prompt":  "Сохранить как: %s",
 		"search.label":   "поиск: %s|",
 		"file.new":       "+ Новый файл",
 
 		// dialog.go (framed popup dialogs)
 		"dialog.dismissed": "Диалог закрыт",
+		"saveAs.title":     "Сохранить файл",
+		"saveAs.save":      "Сохранить",
+		"saveAs.cancel":    "Отмена",
 
 		// find.go (unified search bar for files / response)
 		"find.bar":             "Найти: %s   %s",
@@ -151,7 +153,9 @@ var catalogs = map[string]map[string]string{
 		"profile.noneConfigured":  "нет *.profile",
 		"profile.new":             "+ Новый профиль",
 		"profile.created":         "Профиль создан: %s",
-		"profile.createPrompt":    "Новый профиль: %s",
+		"profile.titleDialog":     "Новый профиль",
+		"profile.create":          "Создать",
+		"profile.cancel":          "Отмена",
 		"placeholder.profileName": "имя профиля",
 		"header.profile":          " [профиль: %s]",
 	},
@@ -207,12 +211,14 @@ var catalogs = map[string]map[string]string{
 
 		// render.go
 		"loading.editor": "Loading editor...",
-		"saveAs.prompt":  "Save as: %s",
 		"search.label":   "search: %s|",
 		"file.new":       "+ New file",
 
 		// dialog.go (framed popup dialogs)
 		"dialog.dismissed": "Dialog dismissed",
+		"saveAs.title":     "Save file",
+		"saveAs.save":      "Save",
+		"saveAs.cancel":    "Cancel",
 
 		// find.go (unified search bar for files / response)
 		"find.bar":             "Find: %s   %s",
@@ -285,7 +291,9 @@ var catalogs = map[string]map[string]string{
 		"profile.noneConfigured":  "no *.profile",
 		"profile.new":             "+ New profile",
 		"profile.created":         "Profile created: %s",
-		"profile.createPrompt":    "New profile: %s",
+		"profile.titleDialog":     "New profile",
+		"profile.create":          "Create",
+		"profile.cancel":          "Cancel",
 		"placeholder.profileName": "profile name",
 		"header.profile":          " [profile: %s]",
 	},

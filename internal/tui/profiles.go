@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
@@ -167,14 +168,25 @@ func ensureDefaultProfile() {
 	_ = os.WriteFile(defaultProfileName, []byte(content), 0o644)
 }
 
-// beginProfileAs opens an input to type the name of a new profile.
+// beginProfileAs opens a modal dialog to type the name of a new profile.
 func (m *model) beginProfileAs() {
 	ti := textinput.New()
 	ti.Placeholder = i18n.T("placeholder.profileName")
 	ti.Focus()
 	ti.Width = 30
-	m.profileAs = &ti
-	m.active = paneEdit
+	m.dialog = m.newInputDialog(i18n.T("profile.titleDialog"), &ti, []dialogButton{
+		{label: i18n.T("profile.cancel"), action: dialogCancel},
+		{label: i18n.T("profile.create"), action: dialogConfirm, defaultBtn: true},
+	}, func(mm *model, act dialogAction, input string) tea.Cmd {
+		if act != dialogConfirm {
+			return nil
+		}
+		name := strings.TrimSpace(input)
+		if name != "" {
+			mm.createProfile(name)
+		}
+		return nil
+	})
 }
 
 // createProfile creates a new profile file from the typed name, adds it to the

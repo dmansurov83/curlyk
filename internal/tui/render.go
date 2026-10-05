@@ -72,24 +72,6 @@ func (m model) View() string {
 	if m.searchActive() {
 		header = m.searchBarRow(m.width)
 	}
-	// save-as prompt for naming a new file
-	if m.saveAs != nil {
-		prompt := lipgloss.NewStyle().
-			Background(lipgloss.Color("235")).
-			Foreground(lipgloss.Color("222")).
-			Width(m.width).
-			Render(i18n.T("saveAs.prompt", m.saveAs.View()))
-		return header + "\n" + paneRow + "\n" + prompt + "\n" + bar
-	}
-	// new-profile prompt for naming a new environment profile
-	if m.profileAs != nil {
-		prompt := lipgloss.NewStyle().
-			Background(lipgloss.Color("235")).
-			Foreground(lipgloss.Color("222")).
-			Width(m.width).
-			Render(i18n.T("profile.createPrompt", m.profileAs.View()))
-		return header + "\n" + paneRow + "\n" + prompt + "\n" + bar
-	}
 	return header + "\n" + paneRow + "\n" + bar
 }
 

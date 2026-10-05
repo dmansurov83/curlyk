@@ -313,9 +313,9 @@ func TestProfileNewButtonMouse(t *testing.T) {
 		Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
 		X: m.filesWidth() / 2, Y: y,
 	})
-	mm := r.(model)
-	if mm.profileAs == nil {
-		t.Fatalf("new-profile input not opened on click (profileAs=nil)")
+	rr := r.(model)
+	if rr.dialog == nil || rr.dialog.input == nil {
+		t.Fatalf("new-profile dialog not opened on click (dialog=%+v)", rr.dialog)
 	}
 }
 

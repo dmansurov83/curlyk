@@ -26,15 +26,15 @@ func TestNewBufferThenSave(t *testing.T) {
 	// type something
 	m.ed.SetText("POST http://y/2\nContent-Type: a\n\n")
 
-	// Ctrl+S on unnamed buffer -> opens save-as input
+	// Ctrl+S on unnamed buffer -> opens save-as dialog
 	m3, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = m3.(model)
-	if m.saveAs == nil {
-		t.Fatal("Ctrl+S on unnamed buffer should open save-as input")
+	if m.dialog == nil || m.dialog.input == nil {
+		t.Fatal("Ctrl+S on unnamed buffer should open save-as dialog")
 	}
 
 	// type a name and press Enter
-	m.saveAs.SetValue("newfile")
+	m.dialog.input.SetValue("newfile")
 	m4, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	m = m4.(model)
 	if m.filePath != "newfile.http" {

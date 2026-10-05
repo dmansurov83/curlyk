@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -18,7 +19,7 @@ func testDialog(m *model) *dialogBox {
 	return m.newDialog("Тест", []string{"Строка 1", "Строка 2"}, []dialogButton{
 		{label: "Cancel", action: dialogCancel},
 		{label: "Confirm", action: dialogConfirm, defaultBtn: true},
-	}, func(m *model, act dialogAction) tea.Cmd {
+	}, func(m *model, act dialogAction, input string) tea.Cmd {
 		return nil // just dismiss
 	})
 }
@@ -97,5 +98,70 @@ func TestDialogBlocksKeys(t *testing.T) {
 	_, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("XYZ")})
 	if m.ed.Text() != before {
 		t.Fatalf("dialog should block editing; text changed to %q", m.ed.Text())
+	}
+}
+
+// testInputDialog builds a framed dialog with a text input, mirroring how the
+// save-as / new-profile flows open one.
+func testInputDialog(m *model, handler dialogHandler) *dialogBox {
+	ti := new(textinput.Model)
+	*ti = textinput.New()
+	ti.Placeholder = "name"
+	ti.Focus()
+	return m.newInputDialog("Ввод", ti, []dialogButton{
+		{label: "Cancel", action: dialogCancel},
+		{label: "OK", action: dialogConfirm, defaultBtn: true},
+	}, handler)
+}
+
+// TestInputDialogRoutesKeys verifies printable and editing keys go into the
+// dialog's text input (reaching the committed value), not the editor, and that
+// Enter confirms with the typed text.
+func TestInputDialogRoutesKeys(t *testing.T) {
+	var got string
+	var gotAct dialogAction
+	m := New(Args{Width: 100, Height: 20}).(model)
+	m.dialog = testInputDialog(&m, func(mm *model, act dialogAction, input string) tea.Cmd {
+		got, gotAct = input, act
+		return nil
+	})
+	// Printable dir goes into the input; the editor text must not change.
+	before := m.ed.Text()
+	m2, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("catalog")})
+	if m2.(model).ed.Text() != before {
+		t.Fatalf("input dialog must not edit the editor; got %q", m2.(model).ed.Text())
+	}
+	d := m2.(model).dialog
+	if d == nil || d.input == nil || d.input.Value() != "catalog" {
+		t.Fatalf("input value=%q want catalog", d.input.Value())
+	}
+	// Enter confirms with the typed value.
+	m3, _ := m2.(model).handleKey(teaKeyEnter())
+	if m3.(model).dialog != nil {
+		t.Fatalf("dialog should close on Enter")
+	}
+	if gotAct != dialogConfirm || got != "catalog" {
+		t.Fatalf("onConfirm act=%v input=%q want dialogConfirm/catalog", gotAct, got)
+	}
+}
+
+// TestInputDialogEscCancels verifies Esc cancels the input dialog: the handler
+// runs with dialogCancel (so a save/profile closure can skip the action) and the
+// input value confirms nothing.
+func TestInputDialogEscCancels(t *testing.T) {
+	var gotAct dialogAction
+	var ran bool
+	m := New(Args{Width: 100, Height: 20}).(model)
+	m.dialog = testInputDialog(&m, func(mm *model, act dialogAction, input string) tea.Cmd {
+		ran, gotAct = true, act
+		return nil
+	})
+	m.dialog.input.SetValue("draft")
+	m2, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyEscape})
+	if m2.(model).dialog != nil {
+		t.Fatalf("dialog should close on Esc")
+	}
+	if !ran || gotAct != dialogCancel {
+		t.Fatalf("handler ran=%v act=%v want ran=true dialogCancel", ran, gotAct)
 	}
 }

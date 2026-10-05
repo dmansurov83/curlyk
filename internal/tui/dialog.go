@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
@@ -20,8 +21,9 @@ const (
 )
 
 // dialogHandler is the callback run when a button is confirmed. The dialog is
-// already closed before the handler runs. It returns an optional tea.Cmd.
-type dialogHandler func(m *model, act dialogAction) tea.Cmd
+// already closed before the handler runs; input carries the dialog's text-field
+// value (empty for dialogs without an input). It returns an optional tea.Cmd.
+type dialogHandler func(m *model, act dialogAction, input string) tea.Cmd
 
 // dialogButton is one selectable action in a framed popup dialog.
 type dialogButton struct {
@@ -47,6 +49,14 @@ type dialogBox struct {
 	buttons []dialogButton
 	// sel is the index of the highlighted (selected) button.
 	sel int
+	// input is an optional single-line text input rendered below the title. When
+	// nil the dialog is a plain confirm/prompt popup with no text entry; when set,
+	// printable and editing keys go into the input unless focus moved to buttons.
+	input *textinput.Model
+	// inputFocused reports whether keyboard input currently targets the text
+	// input (true on open) rather than the button row. Only meaningful when
+	// input is non-nil.
+	inputFocused bool
 	// onAction is the dialog's handler, invoked with the confirmed action.
 	onAction dialogHandler
 }
@@ -66,6 +76,22 @@ func (m *model) newDialog(title string, body []string, buttons []dialogButton, o
 		body:     body,
 		buttons:  buttons,
 		onAction: onDone,
+	}
+	d.sel = d.defaultIndex()
+	return d
+}
+
+// newInputDialog builds a framed dialog with a single-line text input rendered
+// below the title, plus the given button row. The input starts focused so
+// printable/editing keys go straight into it; Tab moves focus to the buttons and
+// back. onDone is called on confirm, like newDialog.
+func (m *model) newInputDialog(title string, input *textinput.Model, buttons []dialogButton, onDone dialogHandler) *dialogBox {
+	d := &dialogBox{
+		title:        title,
+		buttons:      buttons,
+		input:        input,
+		inputFocused: true,
+		onAction:     onDone,
 	}
 	d.sel = d.defaultIndex()
 	return d
@@ -100,14 +126,30 @@ func (d *dialogBox) buttonRow() string {
 	return sb.String()
 }
 
-// rows returns the dialog interior rows: the title row, the body lines and the
-// button row.
+// rows returns the dialog interior rows: the title row, the optional input row,
+// the body lines and the button row.
 func (d *dialogBox) rows() []string {
-	out := make([]string, 0, len(d.body)+2)
+	out := make([]string, 0, len(d.body)+3)
 	out = append(out, d.buttonTitleRow())
+	if d.input != nil {
+		out = append(out, d.inputRow())
+	}
 	out = append(out, d.body...)
 	out = append(out, d.buttonRow())
 	return out
+}
+
+// inputRow renders the single-line text input row (the focused input's View,
+// or its placeholder when not focused).
+func (d *dialogBox) inputRow() string {
+	if d.input == nil {
+		return ""
+	}
+	in := d.input
+	if d.inputFocused {
+		return in.View()
+	}
+	return in.Placeholder
 }
 
 // buttonTitleRow renders the dialog title line (the first interior row).
@@ -280,14 +322,28 @@ func (m *model) handleDialogKey(msg tea.KeyMsg) tea.Cmd {
 	if d == nil {
 		return nil
 	}
-	switch msg.String() {
-	case "esc", "ctrl+c":
+	key := msg.String()
+	// Escape and Ctrl+C always cancel the whole dialog, regardless of input focus.
+	if key == "esc" || key == "ctrl+c" {
 		return m.activateDialog(dialogCancel)
-	case "enter":
+	}
+	// Enter confirms the dialog (the currently selected action). This takes
+	// priority over the input so a typed name is committed with Enter.
+	if key == "enter" {
 		if d.sel < 0 || d.sel >= len(d.buttons) {
 			return nil
 		}
 		return m.activateDialog(d.buttons[d.sel].action)
+	}
+	// While the text input has focus, its keys are consumed by the input; Tab
+	// moves focus to the button row (preventing a literal tab in the field).
+	if d.input != nil && d.inputFocused {
+		updated, _ := d.input.Update(msg)
+		d.input = &updated
+		return nil
+	}
+	// Tab/arrows cycle the selected button.
+	switch key {
 	case "tab", "right":
 		if n := len(d.buttons); n > 0 {
 			d.sel = (d.sel + 1) % n
@@ -308,10 +364,14 @@ func (m *model) activateDialog(act dialogAction) tea.Cmd {
 		return nil
 	}
 	handler := d.onAction
+	input := ""
+	if d.input != nil {
+		input = d.input.Value()
+	}
 	m.dialog = nil
 	if handler == nil {
 		m.status = i18n.T("dialog.dismissed")
 		return nil
 	}
-	return handler(m, act)
+	return handler(m, act, input)
 }
