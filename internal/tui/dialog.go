@@ -49,6 +49,9 @@ type dialogBox struct {
 	buttons []dialogButton
 	// sel is the index of the highlighted (selected) button.
 	sel int
+	// hovered is the button index under the mouse pointer, highlighted with the
+	// hover style; -1 when the pointer is not over any button.
+	hovered int
 	// input is an optional single-line text input rendered below the title. When
 	// nil the dialog is a plain confirm/prompt popup with no text entry; when set,
 	// printable and editing keys go into the input unless focus moved to buttons.
@@ -75,6 +78,7 @@ func (m *model) newDialog(title string, body []string, buttons []dialogButton, o
 		title:    title,
 		body:     body,
 		buttons:  buttons,
+		hovered:  -1,
 		onAction: onDone,
 	}
 	d.sel = d.defaultIndex()
@@ -91,6 +95,7 @@ func (m *model) newInputDialog(title string, input *textinput.Model, buttons []d
 		buttons:      buttons,
 		input:        input,
 		inputFocused: true,
+		hovered:      -1,
 		onAction:     onDone,
 	}
 	d.sel = d.defaultIndex()
@@ -108,34 +113,71 @@ func (d *dialogBox) defaultIndex() int {
 	return 0
 }
 
-// buttonRow returns the single-line button row: each label wrapped in interior
-// padding and joined by a space, the selected one inverted.
-func (d *dialogBox) buttonRow() string {
+// buttonRow returns the button row rendered right-aligned to the given width:
+// each label wrapped in interior padding and joined by a space, the selected or
+// hovered one inverted.
+func (d *dialogBox) buttonRow(w int) string {
+	strip := d.buttonStrip()
+	if w > 0 && displayCellWidth(strip) < w {
+		strip = strings.Repeat(" ", w-displayCellWidth(strip)) + strip
+	}
+	return strip
+}
+
+// buttonStrip returns the raw, left-aligned button strip (labels centred within
+// their padded button cells, joined by a space). The hovered button paints with
+// the hover style; it takes precedence over the keyboard selection so the
+// default ("positive") button also highlights on hover.
+func (d *dialogBox) buttonStrip() string {
 	var sb strings.Builder
 	for i, b := range d.buttons {
 		if i > 0 {
 			sb.WriteString(" ")
 		}
-		label := padToWidth(b.label, displayCellWidth(b.label)+dialogInteriorPad)
-		if i == d.sel {
+		label := dialogButtonLabel(b)
+		switch {
+		case i == d.hovered:
+			sb.WriteString(menuHoverStyle.Render(label))
+		case i == d.sel:
 			sb.WriteString(menuSelStyle.Render(label))
-		} else {
+		default:
 			sb.WriteString(menuNormalStyle.Render(label))
 		}
 	}
 	return sb.String()
 }
 
+// dialogButtonLabel returns a single button cell: the label centred with
+// dialogInteriorPad on each side (wider buttons keep the extra padding on the
+// right).
+func dialogButtonLabel(b dialogButton) string {
+	w := displayCellWidth(b.label) + 2*dialogInteriorPad
+	return centerCells(b.label, w)
+}
+
+// centerCells returns s expanded to total width w with the text horizontally
+// centred (the extra cell, when w-width is odd, lands on the right).
+func centerCells(s string, w int) string {
+	n := w - displayCellWidth(s)
+	if n <= 0 {
+		return s
+	}
+	left := n / 2
+	right := n - left
+	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
+}
+
 // rows returns the dialog interior rows: the title row, the optional input row,
-// the body lines and the button row.
-func (d *dialogBox) rows() []string {
+// the body lines and the button row. w is the interior content width in cells;
+// the button row is right-aligned within it.
+func (d *dialogBox) rows(w int) []string {
 	out := make([]string, 0, len(d.body)+3)
 	out = append(out, d.buttonTitleRow())
 	if d.input != nil {
 		out = append(out, d.inputRow())
 	}
 	out = append(out, d.body...)
-	out = append(out, d.buttonRow())
+	out = append(out, d.buttonRow(w))
 	return out
 }
 
@@ -167,26 +209,27 @@ func (m *model) dialogFrame() string {
 	if d == nil {
 		return ""
 	}
-	contentW := m.dialogContentWidth()
-	inner := strings.Join(d.rows(), "\n")
+	drawW := m.dialogFrameDrawWidth()
+	inner := strings.Join(d.rows(drawW), "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(dialogBorderColor)).
-		Width(contentW+2*dialogPad).
+		Width(drawW + 2*dialogPad).
 		Padding(0, dialogPad).
 		Render(inner)
 }
 
-// dialogContentWidth returns the widest interior row (body/buttons) capped at
-// three quarters of the terminal width so the frame never overruns a narrow
-// window.
-func (m *model) dialogContentWidth() int {
+// dialogFrameDrawWidth returns the display width of the interior content row
+// that is shaped by the dialog (title/body/buttons), used both to draw the frame
+// and to right-align the button row. It is capped at three quarters of the
+// terminal width so the frame never overruns a narrow window.
+func (m *model) dialogFrameDrawWidth() int {
 	d := m.dialog
 	if d == nil {
 		return 0
 	}
 	w := 0
-	for _, r := range d.rows() {
+	for _, r := range d.rows(0) {
 		if cw := displayCellWidth(r); cw > w {
 			w = cw
 		}
@@ -217,7 +260,8 @@ func (m *model) dialogFrameSize() (int, int) {
 // corner within the pane row: centred horizontally over the full width and
 // vertically within the pane block (below the header, above the status bar).
 func (m *model) dialogGeom() (int, int) {
-	fw, fh := m.dialogFrameSize()
+	fw := m.dialogFrameDrawWidth() + 2 + 2*dialogPad // border + interior padding
+	_, fh := m.dialogFrameSize()
 	x0 := (m.width - fw) / 2
 	if x0 < 0 {
 		x0 = 0
@@ -282,7 +326,8 @@ func (m *model) dialogContains(x, y int) bool {
 		return false
 	}
 	x0, y0 := m.dialogGeom()
-	fw, fh := m.dialogFrameSize()
+	fw := m.dialogFrameDrawWidth() + 2 + 2*dialogPad
+	_, fh := m.dialogFrameSize()
 	return x >= x0 && x < x0+fw && y >= y0 && y < y0+fh
 }
 
@@ -299,11 +344,15 @@ func (m *model) dialogButtonAt(x, y int) int {
 	if y != y0+fh-1 {
 		return -1
 	}
-	rel := x - (x0 + dialogPad)
+	// Buttons sit right-aligned on the last interior row.
+	contentW := m.dialogFrameDrawWidth()
+	stripW := displayCellWidth(d.buttonStrip())
+	startX := x0 + dialogPad + (contentW - stripW)
+	rel := x - startX
 	if rel < 0 {
 		return -1
 	}
-	// walk the buttons like buttonRow does
+	// walk the buttons like buttonStrip does
 	col := 0
 	for i, b := range d.buttons {
 		w := displayCellWidth(b.label) + 2*dialogInteriorPad

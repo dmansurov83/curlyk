@@ -73,8 +73,11 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		}
 	case msg.Button == tea.MouseButtonNone && msg.Action == tea.MouseActionMotion:
 		// Hover: track the position even over a dialog so a freshly hovered
-		// button can be highlighted. No changes are made while a dialog is open.
+		// button can be highlighted.
 		m.hoverX, m.hoverY = msg.X, msg.Y
+		if m.dialog != nil {
+			m.dialog.hovered = m.dialogButtonAt(msg.X, msg.Y)
+		}
 		return m, nil
 	}
 
@@ -247,6 +250,9 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// Clear hover so a popup opened right after a click doesn't keep an
 		// obsolete highlight; the next motion event re-establishes it.
 		m.hoverX, m.hoverY = -1, -1
+		if m.dialog != nil {
+			m.dialog.hovered = -1
+		}
 		// finish selection. Keep it if it was a drag or a double-click word
 		// selection; only collapse the standalone single-click.
 		if m.active == paneResp {
