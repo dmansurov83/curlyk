@@ -20,6 +20,11 @@ type Request struct {
 	// Name is the optional @name annotation for this request block.
 	Name string
 
+	// Title is the text after the "###" separator that opens this request block
+	// (empty when the block has no separator). Used as the request name in
+	// navigation when Name is empty.
+	Title string
+
 	// Method is the HTTP method (GET, POST, ...).
 	Method string
 

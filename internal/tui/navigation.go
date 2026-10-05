@@ -16,7 +16,8 @@ const maxNavRows = 8
 type navEntry struct {
 	// name is the @name annotation (empty for unnamed requests).
 	name string
-	// label is the text shown in the list: the @name, or "METHOD URL".
+	// label is the text shown in the list: the @name, or the "### ..." title,
+	// or "METHOD URL".
 	label string
 	// search is the lowercased text matched against the filter.
 	search string
@@ -51,9 +52,15 @@ func (m *model) buildNavEntries() []navEntry {
 	for _, r := range reqs {
 		label := r.Name
 		search := r.Name
-		if r.Name == "" {
-			// Unnamed requests are shown as "METHOD URL" (filterable and searchable
-			// by the full target, not only the truncated label).
+		if label == "" {
+			// Fall back to the "### ..." block title, then to "METHOD URL".
+			// Unnamed requests with no title are shown as "METHOD URL"
+			// (filterable and searchable by the full target, not only the
+			// truncated label).
+			label = r.Title
+			search = r.Title
+		}
+		if label == "" {
 			label = r.Method + " " + r.URL
 			search = label
 		}

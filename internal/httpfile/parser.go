@@ -23,6 +23,10 @@ func ParseFile(src string) []Request {
 	// (the JetBrains convention places @name above the request line). It is
 	// attached to the next request line and cleared on "###" separators.
 	pendingName := ""
+	// pendingTitle is the text after the "###" separator; it is attached to
+	// the next request line as the block title (cleared by flush, overwritten
+	// by the next separator).
+	pendingTitle := ""
 	// fileVars collects "@var name = value" declarations across the whole file.
 	// Variables are file-scoped and available to every request block.
 	fileVars := map[string]string{}
@@ -44,6 +48,7 @@ func ParseFile(src string) []Request {
 		bodyStartLine = 0
 		bodyEndLine = 0
 		pendingName = ""
+		pendingTitle = ""
 	}
 
 	lines := strings.Split(src, "\n")
@@ -52,16 +57,20 @@ func ParseFile(src string) []Request {
 		lineNo := li + 1
 		trim := strings.TrimSpace(line)
 
-		// Separator closes the current request block.
+		// Separator closes the current request block. The text after "###" is
+		// kept as the title of the NEXT request block (flush clears any
+		// previous pending values, so set it after).
 		if strings.HasPrefix(line, "###") {
 			flush()
+			pendingTitle = separatorTitle(line)
 			continue
 		}
 
 		// Request line.
 		if m, urlStr, _, ok := parseRequestLine(line); ok {
-			// Capture a pending @name before flush clears it.
+			// Capture pending @name / ### title before flush clears them.
 			attachName := pendingName
+			attachTitle := pendingTitle
 			flush()
 			cur.Method = m
 			cur.URL = urlStr
@@ -70,6 +79,8 @@ func ParseFile(src string) []Request {
 			if attachName != "" {
 				cur.Name = attachName
 			}
+			// Attach the "### ..." title of this block.
+			cur.Title = attachTitle
 			seenRequest = true
 			mode = modeHeaders
 			continue
@@ -227,6 +238,13 @@ func joinBody(lines []string) string {
 	joined := strings.Join(lines[start:], "\n")
 	// trim trailing whitespace
 	return strings.TrimRight(joined, " \t\r\n")
+}
+
+// separatorTitle extracts the human-readable title from a "###" separator
+// line: the text after the leading "#"s, trimmed of surrounding whitespace.
+// "###" alone or "###   " yields an empty title.
+func separatorTitle(line string) string {
+	return strings.TrimSpace(strings.TrimLeft(line, "#"))
 }
 
 // GetRequestAtLine finds the request block whose Line <= targetLine,

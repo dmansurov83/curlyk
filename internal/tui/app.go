@@ -129,6 +129,10 @@ type model struct {
 	// meaningful while mouse motion events are flowing; reset to -1 on release
 	// or when the cursor leaves the pane.
 	hoverX, hoverY int
+	// dialog is a modal framed popup (confirmations, prompts) drawn centred
+	// over the panes. When non-nil it owns all keyboard and mouse input until
+	// dismissed.
+	dialog *dialogBox
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).

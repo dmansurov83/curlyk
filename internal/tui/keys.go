@@ -84,6 +84,11 @@ func (m *model) forceCloseEditBatch() {
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// A modal dialog owns every key while it is open — before any panel,
+	// search or popup handling.
+	if m.dialog != nil {
+		return m, m.handleDialogKey(msg)
+	}
 	// The unified search box, while open, must consume every key — BEFORE any
 	// pane-specific handling, otherwise typing a second letter while a files
 	// search is open would re-open a fresh search on the paneFiles branch (which

@@ -104,6 +104,43 @@ POST http://a/2
 	}
 }
 
+// TestSeparatorTitle verifies the "### ..." text becomes Request.Title of the
+// next request block: trimmed of the leading "#"s and whitespace, empty for a
+// bare separator, and not leaking across blocks.
+func TestSeparatorTitle(t *testing.T) {
+	src := `### Создать запись
+POST https://api.example.com/todos
+Content-Type: application/json
+
+{"title": "test"}
+
+###   
+GET https://api.example.com/ping
+
+###
+DELETE https://api.example.com/todos/1
+
+GET https://api.example.com/no-title
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 4 {
+		t.Fatalf("want 4 requests, got %d", len(reqs))
+	}
+	if reqs[0].Title != "Создать запись" {
+		t.Errorf("req0 title=%q want 'Создать запись'", reqs[0].Title)
+	}
+	if reqs[1].Title != "" {
+		t.Errorf("req1 title=%q want '' (whitespace-only separator)", reqs[1].Title)
+	}
+	if reqs[2].Title != "" {
+		t.Errorf("req2 title=%q want '' (bare separator)", reqs[2].Title)
+	}
+	// A request without any preceding separator must have an empty title.
+	if reqs[3].Title != "" {
+		t.Errorf("req3 title=%q want '' (no separator)", reqs[3].Title)
+	}
+}
+
 // TestNameAnnotationAfterRequest verifies @name after the request line still
 // attaches (original placement).
 func TestNameAnnotationAfterRequest(t *testing.T) {

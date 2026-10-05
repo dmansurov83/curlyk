@@ -22,12 +22,12 @@ func TestNavRenderEntryRowPositions(t *testing.T) {
 	if !strings.Contains(stripANSI(rows[headerHeight+1]), "Перейти к запросу") {
 		t.Logf("title not found at row %d: %q", headerHeight+1, rows[headerHeight+1])
 	}
-	// First entry row.
-	if !strings.Contains(stripANSI(rows[headerHeight+2]), "GET http://x/1") {
+	// First entry row: the "### a" heading is used as the entry label.
+	if !strings.Contains(stripANSI(rows[headerHeight+2]), "a") {
 		t.Errorf("first entry missing at row %d: %q\nfull:\n%s", headerHeight+2, rows[headerHeight+2], out)
 	}
-	// Second entry row.
-	if !strings.Contains(stripANSI(rows[headerHeight+3]), "POST http://x/2") {
+	// Second entry row: the "### b" heading.
+	if !strings.Contains(stripANSI(rows[headerHeight+3]), "b") {
 		t.Errorf("second entry missing at row %d: %q\nfull:\n%s", headerHeight+3, rows[headerHeight+3], out)
 	}
 }

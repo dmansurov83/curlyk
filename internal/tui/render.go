@@ -59,6 +59,11 @@ func (m model) View() string {
 	bar := m.renderStatus(m.width)
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, pan, left)
 	paneRow := lipgloss.JoinHorizontal(lipgloss.Top, row1, right)
+	// A modal dialog overlays the pane row, centred on top of it. The header
+	// and status bar stay on screen so the dialog is clearly a floating window.
+	if m.dialog != nil {
+		paneRow = m.renderDialogOverlay(paneRow)
+	}
 	header := m.renderHeader(m.width)
 	// The unified search bar (files or response) is drawn on the top header row
 	// (in place of the file-name bar) so no pane row moves — the pane content,

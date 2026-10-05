@@ -77,6 +77,9 @@ var catalogs = map[string]map[string]string{
 		"search.label":   "поиск: %s|",
 		"file.new":       "+ Новый файл",
 
+		// dialog.go (framed popup dialogs)
+		"dialog.dismissed": "Диалог закрыт",
+
 		// find.go (unified search bar for files / response)
 		"find.bar":             "Найти: %s   %s",
 		"find.placeholder":     "поиск в ответе",
@@ -207,6 +210,9 @@ var catalogs = map[string]map[string]string{
 		"saveAs.prompt":  "Save as: %s",
 		"search.label":   "search: %s|",
 		"file.new":       "+ New file",
+
+		// dialog.go (framed popup dialogs)
+		"dialog.dismissed": "Dialog dismissed",
 
 		// find.go (unified search bar for files / response)
 		"find.bar":             "Find: %s   %s",

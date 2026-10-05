@@ -50,6 +50,36 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 
 	// Start handling mouse gestures.
 	switch {
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+		// A modal dialog owns the mouse while it is open: a click on one of its
+		// buttons confirms it, any click outside the frame dismisses the dialog.
+		if m.dialog != nil {
+			if i := m.dialogButtonAt(msg.X, msg.Y); i >= 0 {
+				cmd := m.activateDialog(m.dialog.buttons[i].action)
+				return m, cmd
+			}
+			if !m.dialogContains(msg.X, msg.Y) {
+				m.dialog = nil
+			}
+			return m, nil
+		}
+	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
+		// A modal dialog dismisses on any right-click outside the frame.
+		if m.dialog != nil {
+			if !m.dialogContains(msg.X, msg.Y) {
+				m.dialog = nil
+			}
+			return m, nil
+		}
+	case msg.Button == tea.MouseButtonNone && msg.Action == tea.MouseActionMotion:
+		// Hover: track the position even over a dialog so a freshly hovered
+		// button can be highlighted. No changes are made while a dialog is open.
+		m.hoverX, m.hoverY = msg.X, msg.Y
+		return m, nil
+	}
+
+	// Start handling mouse gestures (dialogs dismissed above).
+	switch {
 	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
 		// Right-clicking a request line opens its action popup.
 		if msg.X < half {

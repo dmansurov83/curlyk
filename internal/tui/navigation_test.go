@@ -37,11 +37,12 @@ func TestNavCollect(t *testing.T) {
 		t.Fatalf("want 3 entries, got %d", len(entries))
 	}
 	// line 2 = "GET https://api.test/v1/users", named? no.
+	// entry0: "### Первый" is the block title, so it's the label.
 	if entries[0].name != "" || entries[0].line != 2 {
 		t.Errorf("entry0 name=%q line=%d want name '' line 2", entries[0].name, entries[0].line)
 	}
-	if !strings.HasPrefix(entries[0].label, "GET ") {
-		t.Errorf("entry0 unnamed label should start with METHOD, got %q", entries[0].label)
+	if entries[0].label != "Первый" {
+		t.Errorf("entry0 unnamed label should be the ### title, got %q", entries[0].label)
 	}
 	// line 7 = "POST https://api.test/v1/find", annotated @name findUser above it
 	if entries[1].name != "findUser" || entries[1].line != 7 {
@@ -53,6 +54,58 @@ func TestNavCollect(t *testing.T) {
 	// line 11 = "GET https://api.test/v1/list"
 	if entries[2].line != 11 {
 		t.Errorf("entry2 line=%d want 11", entries[2].line)
+	}
+}
+
+// TestNavTitleFallback verifies that a request without @name uses the "### ..."
+// heading as its label in the navigation list, and that @name still wins over
+// the heading.
+func TestNavTitleFallback(t *testing.T) {
+	src := `### Создать запись
+POST https://api.test/v1/todos
+Content-Type: application/json
+
+{"title": "test"}
+
+### Секрет
+@name findUser
+GET https://api.test/v1/secret
+`
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText(src)
+
+	entries := m.buildNavEntries()
+	if len(entries) != 2 {
+		t.Fatalf("want 2 entries, got %d", len(entries))
+	}
+	if entries[0].label != "Создать запись" {
+		t.Errorf("entry0 label=%q want 'Создать запись' (### heading)", entries[0].label)
+	}
+	if entries[0].name != "" {
+		t.Errorf("entry0 name=%q want '' (no @name)", entries[0].name)
+	}
+	// @name has priority over the ### heading.
+	if entries[1].label != "findUser" {
+		t.Errorf("entry1 label=%q want 'findUser' (@name wins over ###)", entries[1].label)
+	}
+	if entries[1].name != "findUser" {
+		t.Errorf("entry1 name=%q want 'findUser'", entries[1].name)
+	}
+
+	// Filter by the ### heading and jump: Ctrl+G → type "Создать" → Enter lands
+	// on the first request's line.
+	m.nav = &navMenu{entries: m.buildNavEntries(), sel: 0}
+	m.handleNavKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Созд")})
+	if got := m.nav.visible(); len(got) != 1 {
+		t.Fatalf("filter 'Созд' visible=%v want only the titled request", got)
+	}
+	m.handleNavKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.nav != nil {
+		t.Fatal("Enter should close the navigation popup")
+	}
+	if m.ed.curRow != 1 {
+		t.Errorf("cursor row=%d want 1 (line 2, 0-based)", m.ed.curRow)
 	}
 }
 
