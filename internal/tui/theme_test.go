@@ -56,46 +56,6 @@ func TestCycleThemeWrapsToFirst(t *testing.T) {
 	}
 }
 
-// TestThemeMenuPickAppliesScheme verifies picking a scheme from the action-menu
-// picker applies it and persists.
-func TestThemeMenuPickAppliesScheme(t *testing.T) {
-	settings.SetAppSettingsPath(t.TempDir() + "/appsettings.yml")
-	i18n.SetLocale("ru")
-
-	m := New(Args{Width: 120, Height: 30}).(model)
-	m.active = paneEdit
-	m.ed.SetText("GET http://x/1\n")
-	m.ed.curRow = 0
-
-	// The new "Цветовая схема" is item index 3 in the action menu.
-	m.actionMenu = &actionMenu{
-		anchorRow: 0,
-		items:     menuItems(),
-		sel:       3,
-	}
-	res, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd != nil {
-		t.Fatalf("theme picker must not produce a cmd, got %v", cmd)
-	}
-	mm := res.(model)
-	// The picker menu is now open, listing scheme choices.
-	if mm.actionMenu == nil {
-		t.Fatal("theme picker should have replaced the action menu")
-	}
-	if len(mm.actionMenu.items) < 3 {
-		t.Fatalf("picker should list at least builtin schemes, got %d", len(mm.actionMenu.items))
-	}
-	// Select and confirm Darkula (index 1 in schemeNames()).
-	mm.actionMenu.sel = 1
-	res2, _ := mm.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
-	if res2.(model).actionMenu != nil {
-		t.Error("picker should close after confirming a scheme")
-	}
-	if cn := currentSchemeName(); cn != theme.DarkulaName {
-		t.Errorf("scheme after pick = %q, want darkula", cn)
-	}
-}
-
 // TestCustomThemeFromFileApplies verifies a scheme from themes/*.theme is found
 // and applied by name.
 func TestCustomThemeFromFileApplies(t *testing.T) {

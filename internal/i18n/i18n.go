@@ -116,7 +116,6 @@ var catalogs = map[string]map[string]string{
 		"menu.copyCurl":        "⧉ Копировать как cURL",
 		"menu.formatJson":      "{} Форматировать JSON",
 		"menu.formBody":        "◇ Тело как ключ=значение (&)",
-		"menu.theme":           "◩ Цветовая схема",
 		"err.noBodyFormat":     "Нет тела запроса для форматирования",
 		"err.notJson":          "Тело запроса не является валидным JSON",
 		"err.formatJson":       "Ошибка форматирования JSON: %s",
@@ -189,7 +188,6 @@ var catalogs = map[string]map[string]string{
 		"theme.darkula":       "Darkula",
 		"theme.light":         "Light",
 		"theme.templateWritten": "Theme template written: %s",
-		"menu.theme":          "◩ Color scheme",
 
 		// help panel (right pane, shown while there is no response yet)
 		"help.title":    "Hotkeys",

@@ -193,20 +193,20 @@ func rebuildStyles() {
 	copyHoverFgColor = curScheme.CopyHoverFg
 	copyHoverBgColor = curScheme.CopyHoverBg
 	// action menu
-	menuSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuSelFgColor)).Background(lipgloss.Color(menuSelBgColor))
-	menuHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuHoverFgColor)).Background(lipgloss.Color(menuHoverBgColor))
-	menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuFgColor)).Background(lipgloss.Color(menuBgColor))
 	menuSelFgColor = curScheme.MenuSelFg
 	menuSelBgColor = curScheme.MenuSelBg
 	menuHoverFgColor = curScheme.MenuHoverFg
 	menuHoverBgColor = curScheme.MenuHoverBg
 	menuFgColor = curScheme.MenuFg
 	menuBgColor = curScheme.MenuBg
+	menuSelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuSelFgColor)).Background(lipgloss.Color(menuSelBgColor))
+	menuHoverStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuHoverFgColor)).Background(lipgloss.Color(menuHoverBgColor))
+	menuNormalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(menuFgColor)).Background(lipgloss.Color(menuBgColor))
 	// find highlights
-	findStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(findFgColor)).Background(lipgloss.Color(findBgColor))
-	findCurStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(findCurFgColor)).Background(lipgloss.Color(findCurBgColor))
 	findFgColor = curScheme.FindFg
 	findBgColor = curScheme.FindBg
 	findCurFgColor = curScheme.FindCurFg
 	findCurBgColor = curScheme.FindCurBg
+	findStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(findFgColor)).Background(lipgloss.Color(findBgColor))
+	findCurStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(findCurFgColor)).Background(lipgloss.Color(findCurBgColor))
 }
