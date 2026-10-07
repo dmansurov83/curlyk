@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +62,44 @@ func TestDoubleClickWordSelection(t *testing.T) {
 	sel := m.ed.SelectedText(m.selAnchorRow, m.selAnchorCol, m.ed.curRow, m.ed.curCol)
 	if sel != "https://x.com" {
 		t.Errorf("double-click selected=%q want https://x.com", sel)
+	}
+}
+
+// TestCopyAsCurlSubstitutesVars verifies copy-as-curl resolves {{name}} and
+// {{$fn}} placeholders instead of copying the raw template.
+func TestCopyAsCurlSubstitutesVars(t *testing.T) {
+	orig := clipboardWriter
+	t.Cleanup(func() { clipboardWriter = orig })
+	var got string
+	clipboardWriter = func(s string) error { got = s; return nil }
+
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("@var token = abc\n\nGET https://api.test/{{token}}/items\nX-Token: {{token}}\n\n")
+	m.ed.curRow = 2
+	m.copyAsCurl()
+
+	if strings.Contains(got, "{{") {
+		t.Fatalf("copy-as-curl left placeholder in: %s", got)
+	}
+	if !strings.Contains(got, "https://api.test/abc/items") {
+		t.Errorf("url var not substituted, want https://api.test/abc/items in: %s", got)
+	}
+	if !strings.Contains(got, "X-Token: abc") {
+		t.Errorf("header var not substituted, want X-Token: abc in: %s", got)
+	}
+}
+
+// TestCopyAsCurlUnresolvedVar verifies copy-as-curl reports an unresolved
+// variable instead of silently exporting the raw placeholder.
+func TestCopyAsCurlUnresolvedVar(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	m.ed.SetText("\nGET https://api.test/{{missing}}\n")
+	m.ed.curRow = 1
+	m.copyAsCurl()
+	if !strings.Contains(m.status, "missing") {
+		t.Errorf("expected status mentioning missing var, got %q", m.status)
 	}
 }
 

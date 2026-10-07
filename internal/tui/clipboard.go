@@ -39,22 +39,53 @@ func (m *model) copySelection() {
 	m.selActive = false
 }
 
+// clipboardWriter is the OS clipboard write hook; tests override it.
+var clipboardWriter = clipboard.WriteAll
+
 // writeClipboardSafe strips NUL bytes (which panic Windows clipboard) before write.
 func writeClipboardSafe(s string) error {
 	if strings.IndexByte(s, 0) >= 0 {
 		s = strings.ReplaceAll(s, "\x00", "")
 	}
-	return clipboard.WriteAll(s)
+	return clipboardWriter(s)
 }
 
 // copyAsCurl constructs a cURL command from the request under the cursor and
-// copies it to the clipboard (Ctrl+K).
+// copies it to the clipboard (Ctrl+K). {{name}} / {{$fn}} placeholders are
+// resolved exactly like when running the request, so the copied command
+// contains concrete values (falls back to the active profile's @var).
 func (m *model) copyAsCurl() {
 	reqs := httpfile.ParseFile(m.ed.Text())
 	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
 	if req == nil {
 		m.status = i18n.T("err.noRequest")
 		return
+	}
+	vars := req.Vars
+	if pv := m.activeProfileVars(); len(pv) > 0 {
+		vars = httpfile.MergeVars(pv, vars) // local (vars) overrides profile (pv)
+	}
+	sub, subErr := httpfile.Substitute(req.URL, vars)
+	if subErr != nil {
+		m.status = i18n.T("err.variable", subErr.(*httpfile.SubstitutionError).First())
+		return
+	}
+	req.URL = sub
+	for i := range req.Headers {
+		if hv, herr := httpfile.Substitute(req.Headers[i].Value, vars); herr != nil {
+			m.status = i18n.T("err.variable", herr.(*httpfile.SubstitutionError).First())
+			return
+		} else {
+			req.Headers[i].Value = hv
+		}
+	}
+	if req.Body != "" {
+		if bv, berr := httpfile.Substitute(req.Body, vars); berr != nil {
+			m.status = i18n.T("err.variable", berr.(*httpfile.SubstitutionError).First())
+			return
+		} else {
+			req.Body = bv
+		}
 	}
 	var headers []string
 	for _, h := range req.Headers {
