@@ -2,6 +2,7 @@ package tui
 
 import (
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -88,5 +89,42 @@ func TestMouseToRespCell(t *testing.T) {
 	_, _, ok = mouseToRespCell(&m, 30, 5)
 	if ok {
 		t.Error("editor pane click should not map to response cell")
+	}
+}
+
+// TestRespDoubleClickSelectsWord verifies that a double-click in the response
+// pane selects the word under the cursor and keeps it after the release.
+func TestRespDoubleClickSelectsWord(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	rs := m.layout().half
+	m.active = paneResp
+	m.response = "apple banana cherry\n"
+	m.respScroll = 0
+	m.respSelActive = false
+
+	// double-click on the "banana" word: content col 7, body row 0.
+	press := func() {
+		mm, _ := m.Update(tea.MouseMsg{
+			Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: rs + 1 + 7, Y: headerHeight + 2,
+		})
+		m = mm.(model)
+	}
+	// first click
+	press()
+	// force double-click by setting the last click time recently
+	m.lastClickTime = time.Now()
+	// second click within 300ms -> double
+	press()
+	// release
+	mm, _ := m.Update(tea.MouseMsg{
+		Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease, X: rs + 1 + 7, Y: headerHeight + 2,
+	})
+	r := mm.(model)
+	if !r.respSelActive {
+		t.Fatal("response double-click selection must be active")
+	}
+	sel := r.respSelectedText()
+	if sel != "banana" {
+		t.Errorf("resp double-click selected=%q want banana", sel)
 	}
 }

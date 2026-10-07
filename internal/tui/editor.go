@@ -301,13 +301,12 @@ func (e *editor) SelectedText(anchorRow, anchorCol, curRow, curCol int) string {
 	return b.String()
 }
 
-// FindWordRange returns the rune-column [start,end) of the "word" at rune col c.
-// Words are delimited by whitespace and .http punctuation characters.
-func (e *editor) wordRange(row, c int) (int, int) {
-	if row < 0 || row >= len(e.lines) {
-		return 0, 0
-	}
-	runes := []rune(e.lines[row])
+// wordRangeInLine returns the rune-column [start,end) of the "word" at rune col c
+// within a single line. Words are delimited by whitespace and .http punctuation
+// characters. It is shared by the editor and the response pane so double-click
+// word selection behaves identically in both.
+func wordRangeInLine(line string, c int) (int, int) {
+	runes := []rune(line)
 	if len(runes) == 0 {
 		return 0, 0
 	}
@@ -342,6 +341,15 @@ func (e *editor) wordRange(row, c int) (int, int) {
 		return c, c
 	}
 	return start, end
+}
+
+// wordRange returns the rune-column [start,end) of the "word" at rune col c.
+// Words are delimited by whitespace and .http punctuation characters.
+func (e *editor) wordRange(row, c int) (int, int) {
+	if row < 0 || row >= len(e.lines) {
+		return 0, 0
+	}
+	return wordRangeInLine(e.lines[row], c)
 }
 
 // DeleteRange removes the text in [anchor, cursor] and returns the removed text.

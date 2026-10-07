@@ -221,9 +221,27 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 			m.selActive = false
 			// click in response pane: start a text selection there
 			if rrow, rcol, ok := mouseToRespCell(&m, x, y); ok {
+				// double-click detection (within 300ms and same cell), mirroring
+				// the editor pane so a word in the response can be selected too.
+				isDouble := !m.lastClickTime.IsZero() &&
+					time.Since(m.lastClickTime) < 300*time.Millisecond &&
+					rrow == m.lastClickRow && rcol == m.lastClickCol
+				if !isDouble && time.Since(m.lastClickTime) > 300*time.Millisecond {
+					m.lastWasDouble = false
+				}
+				m.lastClickRow, m.lastClickCol, m.lastClickTime = rrow, rcol, time.Now()
 				m.respSelActive = true
 				m.respSelAnchorRow, m.respSelAnchorCol = rrow, rcol
 				m.respSelCurRow, m.respSelCurCol = rrow, rcol
+				if isDouble {
+					m.lastWasDouble = true
+					lines := respPaneLines(&m)
+					if rrow >= 0 && rrow < len(lines) {
+						ws, we := wordRangeInLine(lines[rrow], rcol)
+						m.respSelAnchorRow, m.respSelAnchorCol = rrow, ws
+						m.respSelCurRow, m.respSelCurCol = rrow, we
+					}
+				}
 			}
 		}
 	case msg.Button == tea.MouseButtonNone && msg.Action == tea.MouseActionMotion:
@@ -256,8 +274,13 @@ func (m model) handleMouse(msg tea.MouseMsg) (model, tea.Cmd) {
 		// finish selection. Keep it if it was a drag or a double-click word
 		// selection; only collapse the standalone single-click.
 		if m.active == paneResp {
-			if rrow, rcol, ok := mouseToRespCell(&m, msg.X, msg.Y); ok {
-				m.respSelCurRow, m.respSelCurCol = rrow, rcol
+			// A double-click already set the whole word in the press handler;
+			// don't let the release position overwrite the selection end. For a
+			// plain click / drag the release maps to the final cell.
+			if !m.lastWasDouble {
+				if rrow, rcol, ok := mouseToRespCell(&m, msg.X, msg.Y); ok {
+					m.respSelCurRow, m.respSelCurCol = rrow, rcol
+				}
 			}
 			m.respSelActive = true // keep selection on release
 		} else {
