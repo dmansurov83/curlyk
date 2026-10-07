@@ -29,6 +29,7 @@ var helpKeyCombos = []helpEntry{
 	{key: "Enter", descKey: "help.runMenu"},
 	{key: "Ctrl+K", descKey: "help.copyCurl"},
 	{key: "Ctrl+G", descKey: "help.nav"},
+	{key: "Ctrl+Space", descKey: "help.complete"},
 	{key: "Type to search", descKey: "help.find"},
 	{key: "Ctrl+Z", descKey: "help.undo"},
 	{key: "Ctrl+Shift+Z", descKey: "help.redo"},

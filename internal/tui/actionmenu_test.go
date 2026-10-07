@@ -44,6 +44,29 @@ func TestMenuEscCloses(t *testing.T) {
 	}
 }
 
+// TestMenuEnsuresBlankAfterRequest verifies that opening the action popup on a
+// request line ensures a blank separator line ends the block (so a blank row is
+// available under the request once the menu closes).
+func TestMenuEnsuresBlankAfterRequest(t *testing.T) {
+	m := New(Args{Width: 120, Height: 30}).(model)
+	m.active = paneEdit
+	// request line followed directly by another block's request line (no blank).
+	m.ed.SetText("GET http://x/1\nPOST http://y/2\n")
+	m.ed.curRow = 0
+
+	m.beginActionMenu()
+	lines := m.ed.Lines()
+	if len(lines) < 3 {
+		t.Fatalf("expected at least 3 lines, got %d: %q", len(lines), lines)
+	}
+	if strings.TrimSpace(lines[1]) != "" {
+		t.Fatalf("expected blank separator on line 2, got %q", lines[1])
+	}
+	if !strings.Contains(lines[2], "POST") {
+		t.Fatalf("expected next block preserved on line 3, got %q", lines[2])
+	}
+}
+
 // TestMenuNav verifies up/down move the selection within bounds.
 func TestMenuNav(t *testing.T) {
 	m := New(Args{Width: 120, Height: 30}).(model)

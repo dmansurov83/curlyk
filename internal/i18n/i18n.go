@@ -52,6 +52,7 @@ var catalogs = map[string]map[string]string{
 		"help.runMenu":  "Действия над запросом (попап)",
 		"help.copyCurl": "Copy as cURL",
 		"help.nav":      "Навигация по запросам (список + фильтр)",
+		"help.complete": "Автодополнение (методы, URL, заголовки, переменные)",
 		"help.find":     "Поиск по файлам/ответу: начните печатать",
 		"help.undo":     "Отменить",
 		"help.redo":     "Повторить",
@@ -152,6 +153,9 @@ var catalogs = map[string]map[string]string{
 		"nav.noRequests": "В файле нет запросов",
 		"nav.noMatches":  "Нет совпадений",
 
+		// completion.go
+		"completion.accepted": "Подсказка применена",
+
 		// profiles.go
 		"profile.title":           "Профили",
 		"profile.activeBadge":     "●",
@@ -196,6 +200,7 @@ var catalogs = map[string]map[string]string{
 		"help.runMenu":  "Request actions (popup)",
 		"help.copyCurl": "Copy as cURL",
 		"help.nav":      "Navigate requests (list + filter)",
+		"help.complete": "Autocomplete (methods, URL, headers, variables)",
 		"help.find":     "Search files/response: start typing",
 		"help.undo":     "Undo",
 		"help.redo":     "Redo",
@@ -295,6 +300,9 @@ var catalogs = map[string]map[string]string{
 		"nav.jumped":     "Request «%s» (line %d)",
 		"nav.noRequests": "No requests in file",
 		"nav.noMatches":  "No matches",
+
+		// completion.go
+		"completion.accepted": "Suggestion applied",
 
 		// profiles.go
 		"profile.title":           "Profiles",

@@ -233,6 +233,7 @@ func (m *model) openPanelFile() {
 	m.filePath = name
 	m.dirty = false
 	m.active = paneEdit
+	m.complete = nil
 	m.status = i18n.T("status.opened", name)
 	rememberLastOpened(name)
 	// restore the cursor position this file was left at
@@ -272,6 +273,7 @@ func (m *model) newBuffer() {
 	m.filePath = ""
 	m.dirty = false
 	m.active = paneEdit
+	m.complete = nil
 	m.status = i18n.T("status.newFile")
 }
 

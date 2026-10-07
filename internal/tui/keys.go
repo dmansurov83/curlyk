@@ -134,6 +134,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.handleNavKey(msg)
 	}
 
+	// Completion popup (Ctrl+Space / {{): it intercepts its navigation/accept
+	// keys; printable input falls through to the edit path, which then
+	// refreshes the popup against the new text.
+	if m.complete != nil {
+		if cmd, handled := m.handleCompletionKey(msg); handled {
+			return m, cmd
+		}
+	}
+
 	// Ignore unrecognised Ctrl/Alt combinations. On Windows a bare Ctrl (or a
 	// modifier read alone) can arrive as e.g. "ctrl+@" with no text payload;
 	// without this guard it would fall through to handleEditKey and delete the
@@ -196,6 +205,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// to the editor on jump.
 		m.beginNav()
 		return m, nil
+	case "ctrl+space", "ctrl+@":
+		// Autocomplete in the editor (Ctrl+Space arrives as ctrl+@ on Windows
+		// coninput). Opens the popup and returns focus to the editor.
+		m.active = paneEdit
+		m.beginCompletion()
+		return m, nil
 	case "f1":
 		// Toggle the hotkey reference in the right pane. If an explicit help is
 		// currently shown, F1 dismisses it; otherwise show it.
@@ -228,7 +243,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		// Enter on a request line opens the action popup (Выполнить / Copy as
-		// cURL); elsewhere it inserts a newline (replacing any selection).
+		// cURL); elsewhere it inserts a newline (replacing any selection). A
+		// blank separator line is kept after a request line so a new row is
+		// always one keypress away.
 		if m.active == paneEdit && (m.ed.onIcon || isRequestLine(m.ed.Lines(), m.ed.curRow)) {
 			m.beginActionMenu()
 		} else if m.active == paneEdit {
@@ -357,6 +374,7 @@ func knownModifierKey(key string) bool {
 	case "ctrl+c", "ctrl+x", "ctrl+v", "ctrl+z", "ctrl+shift+z",
 		"ctrl+d", "ctrl+k", "ctrl+l", "ctrl+g", "ctrl+enter", "ctrl+r", "ctrl+y",
 		"ctrl+s", "ctrl+n", "ctrl+a", "ctrl+]", "ctrl+\\",
+		"ctrl+space", "ctrl+@",
 		"ctrl+left", "ctrl+right", "ctrl+home", "ctrl+end",
 		"alt+left", "alt+right", "alt+home":
 		return true
@@ -440,6 +458,8 @@ func (m *model) handleEditKey(msg tea.KeyMsg) {
 				m.ed.InsertString(string(rs))
 				m.appendBurst(string(rs))
 			}
+			// Auto-trigger: typing "{{" opens the variable-completion popup.
+			m.afterEditMaybeCompletion()
 		}
 	}
 	m.ed.clampCol()

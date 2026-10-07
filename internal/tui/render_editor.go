@@ -75,14 +75,17 @@ func (m *model) menuReserve() int {
 }
 
 // popupRows returns the total number of editor content rows the currently open
-// popup (request action menu, form editor or navigation) consumes, or 0 when
-// none is open.
+// popup (request action menu, form editor, navigation or completion) consumes,
+// or 0 when none is open.
 func (m *model) popupRows() int {
 	if m.form != nil {
 		return m.formReserve()
 	}
 	if m.nav != nil {
 		return m.navReserve()
+	}
+	if m.complete != nil {
+		return m.completeReserve()
 	}
 	return m.menuReserve()
 }
@@ -254,6 +257,19 @@ func (m *model) renderEditor(width int) string {
 		if i == m.menuAnchorRow() {
 			for _, ml := range m.menuLines(contentW) {
 				sb.WriteString(ml)
+				sb.WriteString("\n")
+			}
+		}
+		// Completion popup: draw it right under the cursor line when the cursor
+		// is on this line. The popup is indented to the cursor's visible column
+		// so it opens under the cursor instead of at the pane's left edge.
+		if m.complete != nil && i == m.ed.curRow {
+			indent := m.ed.curCol - winStart
+			if indent < 0 {
+				indent = 0
+			}
+			for _, cl := range m.completeLines(contentW, indent) {
+				sb.WriteString(cl)
 				sb.WriteString("\n")
 			}
 		}

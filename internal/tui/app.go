@@ -128,6 +128,10 @@ type model struct {
 	// over the panes. When non-nil it owns all keyboard and mouse input until
 	// dismissed.
 	dialog *dialogBox
+	// complete is the autocomplete popup opened by Ctrl+Space or when "{{" is
+	// typed (nil when closed). While non-nil it consumes a subset of keys (see
+	// handleCompletionKey).
+	complete *completionMenu
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).

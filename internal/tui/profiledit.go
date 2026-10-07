@@ -32,6 +32,7 @@ func (m *model) editProfile(name string) {
 	m.filePath = name
 	m.dirty = false
 	m.active = paneEdit
+	m.complete = nil
 	m.status = i18n.T("status.opened", name)
 	rememberLastOpened(name)
 	m.applyCursor(name)

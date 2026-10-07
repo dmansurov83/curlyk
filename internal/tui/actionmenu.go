@@ -49,11 +49,15 @@ func menuItems() []menuItem {
 }
 
 // beginActionMenu opens the action popup for the request under the cursor.
-// Returns nil when the cursor is not on a request line.
+// Returns nil when the cursor is not on a request line. Before opening it
+// ensures the request block ends with a blank separator line, so after the menu
+// is dismissed the user can move down onto a blank row and type there (a plain
+// Enter on the request line opens the menu, not a newline).
 func (m *model) beginActionMenu() tea.Cmd {
 	if !(m.ed.onIcon || isRequestLine(m.ed.Lines(), m.ed.curRow)) {
 		return nil
 	}
+	m.ensureBlankAfterRequestBlock()
 	m.actionMenu = &actionMenu{
 		anchorRow: m.ed.curRow,
 		items:     menuItems(),
@@ -71,6 +75,48 @@ func (m *model) beginActionMenu() tea.Cmd {
 		}
 	}
 	return nil
+}
+
+// ensureBlankAfterRequestBlock guarantees that the request block starting at
+// reqRow ends with a blank separator line: headers (and any body) are kept, and
+// a single empty line is inserted after them unless one already separates the
+// block from the next one. This keeps a blank row available below the request so
+// a new line can be typed there without pressing Enter on the request line (which
+// opens the menu).
+func (m *model) ensureBlankAfterRequestBlock() {
+	lines := m.ed.Lines()
+	if m.ed.curRow >= len(lines) {
+		return
+	}
+	// Find the end of the block: skip the request line and any header lines.
+	end := m.ed.curRow + 1
+	for end < len(lines) {
+		trim := strings.TrimSpace(lines[end])
+		if trim == "" {
+			return // already a blank separator
+		}
+		if _, _, ok := looksLikeHeaderLine(lines[end]); ok {
+			end++
+			continue
+		}
+		break // body or next block starts here
+	}
+	// Insert a blank line before the first non-header line so the block ends
+	// with it. Guard against inserting at the very end of a file-newline-only
+	// line (trailing empty buffer line).
+	insertAt := end
+	if insertAt >= len(lines) {
+		// append a new blank line at the end
+		m.ed.lines = append(m.ed.lines, "")
+		m.markDirty()
+		return
+	}
+	if strings.TrimSpace(lines[insertAt]) == "" {
+		return
+	}
+	m.ed.pushUndo()
+	m.ed.lines = insertLines(m.ed.lines, insertAt, []string{""})
+	m.markDirty()
 }
 
 // handleMenuKey processes keys while the action popup is open. It returns the
