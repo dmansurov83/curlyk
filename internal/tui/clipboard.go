@@ -224,6 +224,7 @@ func (m *model) pasteOrConvert(text string) {
 	}
 
 	// insert across lines
+	text = normalizeNewlines(text)
 	lines := strings.Split(text, "\n")
 	if len(lines) == 1 {
 		m.ed.InsertString(lines[0])
@@ -245,6 +246,7 @@ func (m *model) pasteOrConvert(text string) {
 
 // insertText inserts a block of text at the current cursor (newline-separated).
 func (m *model) insertText(text string) {
+	text = normalizeNewlines(text)
 	lines := strings.Split(text, "\n")
 	if len(lines) == 1 {
 		m.ed.InsertString(lines[0])

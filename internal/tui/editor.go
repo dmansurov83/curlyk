@@ -8,6 +8,19 @@ import (
 	"github.com/user/curlyk/internal/httpfile"
 )
 
+// normalizeNewlines rewrites CRLF and lone CR to LF so lines loaded from
+// Windows-authored .http files never carry a stray carriage return into the
+// renderer (a trailing \r would reset the terminal cursor to column 0 and
+// corrupt the frame).
+func normalizeNewlines(s string) string {
+	if !strings.ContainsRune(s, '\r') {
+		return s
+	}
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	return s
+}
+
 // editor is a minimal text editor: a buffer of lines, a cursor and viewport
 // scroll. It renders lines through the .http syntax highlighter.
 type editor struct {
@@ -159,7 +172,7 @@ func newEditor(src string, width, height int) *editor {
 	if src == "" {
 		src = ""
 	}
-	lines := strings.Split(src, "\n")
+	lines := strings.Split(normalizeNewlines(src), "\n")
 	return &editor{lines: lines, width: width, height: height}
 }
 
@@ -170,7 +183,7 @@ func (e *editor) SetText(src string) {
 	if src == "" {
 		src = ""
 	}
-	e.lines = strings.Split(src, "\n")
+	e.lines = strings.Split(normalizeNewlines(src), "\n")
 	e.curRow, e.curCol = 0, 0
 	e.onIcon = false
 	e.scroll = 0
@@ -481,6 +494,12 @@ func (e *editor) InsertString(s string) {
 	// strip NUL bytes (they corrupt rendering and break request detection)
 	if strings.IndexByte(s, 0) >= 0 {
 		s = strings.ReplaceAll(s, "\x00", "")
+	}
+	// Strip stray carriage returns: InsertString is a single-line edit, so a
+	// CR could not become a line break here; dropping it keeps CRLF pasted
+	// content from leaking a \r into the rendered line.
+	if strings.IndexByte(s, '\r') >= 0 {
+		s = strings.ReplaceAll(s, "\r", "")
 	}
 	if s == "" {
 		return
