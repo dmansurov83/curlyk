@@ -98,6 +98,23 @@ func TestSubstituteUndefined(t *testing.T) {
 	}
 }
 
+// TestSubstituteMissingNestedVar verifies an undefined variable referenced from
+// inside another variable's value surfaces as a missing placeholder.
+func TestSubstituteMissingNestedVar(t *testing.T) {
+	vars := map[string]string{"auth": "Bearer {{token}}"}
+	s, err := Substitute("X: {{auth}}", vars)
+	se, ok := err.(*SubstitutionError)
+	if !ok {
+		t.Fatalf("want *SubstitutionError, got %T (%v)", err, err)
+	}
+	if se.First() != "token" {
+		t.Errorf("First()=%q", se.First())
+	}
+	if !strings.Contains(s, "{{token}}") {
+		t.Errorf("nested missing placeholder dropped: %q", s)
+	}
+}
+
 func TestSubstituteBuiltins(t *testing.T) {
 	vars := map[string]string{}
 	// timestamp format check (10 digits)
@@ -145,16 +162,49 @@ func TestSubstituteBuiltins(t *testing.T) {
 	}
 }
 
-// TestSubstituteNoRescan verifies a resolved value containing "{{" is inserted
-// verbatim and not substituted again.
-func TestSubstituteNoRescan(t *testing.T) {
-	vars := map[string]string{"a": "x {{y}}", "y": "z"}
+// TestSubstituteNestedVars verifies that a variable whose value references
+// another variable (or built-in) is fully resolved.
+func TestSubstituteNestedVars(t *testing.T) {
+	vars := map[string]string{"apiKey": "e7e83986-b544-4c0b-bd62-b4d588406ced", "auth": "Api-Key {{apiKey}}"}
+	out, err := Substitute("{{auth}}", vars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "Api-Key e7e83986-b544-4c0b-bd62-b4d588406ced" {
+		t.Errorf("out=%q", out)
+	}
+}
+
+// TestSubstituteNestedChain verifies a chain of indirection resolves fully.
+func TestSubstituteNestedChain(t *testing.T) {
+	vars := map[string]string{"a": "{{b}}", "b": "{{c}}", "c": "root"}
 	out, err := Substitute("{{a}}", vars)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != "x {{y}}" {
-		t.Errorf("value re-scanned: %q", out)
+	if out != "root" {
+		t.Errorf("chain out=%q", out)
+	}
+}
+
+// TestSubstituteCycle verifies a self-referencing variable is detected instead
+// of looping forever.
+func TestSubstituteCycle(t *testing.T) {
+	vars := map[string]string{"a": "x {{a}}", "b": "{{c}}", "c": "{{b}}"}
+	out, err := Substitute("{{a}}", vars)
+	if err == nil {
+		t.Fatalf("want cycle error, got %q", out)
+	}
+	if !strings.Contains(out, "{{a}}") {
+		t.Errorf("cyclic placeholder dropped: %q", out)
+	}
+	// Mutual cycle b <-> c.
+	out, err = Substitute("{{b}}", vars)
+	if err == nil {
+		t.Fatalf("want mutual cycle error, got %q", out)
+	}
+	if !strings.Contains(out, "{{b}}") {
+		t.Errorf("mutual cycle placeholder dropped: %q", out)
 	}
 }
 

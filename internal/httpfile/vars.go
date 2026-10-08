@@ -34,14 +34,28 @@ func (e *SubstitutionError) First() string {
 
 // Substitute replaces {{name}} and {{$fn}} placeholders in s against the file
 // variables in vars and the built-in functions. Placeholders are scanned
-// left-to-right and the replacement text is not re-scanned, so a value that
-// itself contains "{{" is inserted verbatim.
+// left-to-right. A variable value may itself contain {{...}} placeholders
+// referencing other variables (or built-ins); those are resolved recursively
+// up to the depth of the reference chain. Cycles (a variable that transitively
+// references itself) are detected and the cyclic placeholder is kept intact.
 //
 // The returned substitution and error are meaningful together: when err is
 // nil every placeholder was resolved; otherwise the string is partially
 // substituted (resolved parts replaced, unresolved kept) and err.(
 // *SubstitutionError).Missing lists what could not be resolved.
 func Substitute(s string, vars map[string]string) (string, error) {
+	s, miss := substitute(s, vars, map[string]bool{})
+	if len(miss) > 0 {
+		return s, &SubstitutionError{Missing: miss}
+	}
+	return s, nil
+}
+
+// substitute replaces placeholders in s, resolving variable values
+// recursively. seen tracks the variables currently being resolved so a
+// reference cycle is not followed forever; a value hit again while on the
+// current resolution stack keeps its placeholder and is reported as missing.
+func substitute(s string, vars map[string]string, seen map[string]bool) (string, []string) {
 	var miss []string
 	var b strings.Builder
 	i := 0
@@ -62,21 +76,46 @@ func Substitute(s string, vars map[string]string) (string, error) {
 		}
 		end := start + 2 + closeIdx + 2
 		name := s[start+2 : end-2]
-		val, ok := resolveVar(name, vars)
-		if ok {
-			b.WriteString(val)
-		} else {
-			miss = append(miss, name)
-			// keep the placeholder intact so callers can show exactly what
-			// was unresolved
-			b.WriteString(s[start:end])
+		// Built-in functions have no dependencies, so they resolve directly
+		// without participating in cycle detection.
+		if strings.HasPrefix(name, "$") {
+			val, ok := builtinValue(name)
+			if ok {
+				b.WriteString(val)
+			} else {
+				miss = append(miss, name)
+				b.WriteString(s[start:end])
+			}
+			i = end
+			continue
 		}
+		if seen[name] {
+			// Cyclic reference: keep the placeholder and bail out of this chain.
+			miss = append(miss, name)
+			b.WriteString(s[start:end])
+			i = end
+			continue
+		}
+		val, ok := vars[name]
+		if !ok {
+			miss = append(miss, name)
+			b.WriteString(s[start:end])
+			i = end
+			continue
+		}
+		// Resolve references inside the variable's own value. The resolved
+		// value is inserted at this position; references within it are
+		// substituted by direct recursion (not a re-scan of the whole output).
+		seen[name] = true
+		sub, cycle := substitute(val, vars, seen)
+		delete(seen, name)
+		if len(cycle) > 0 {
+			miss = append(miss, cycle...)
+		}
+		b.WriteString(sub)
 		i = end
 	}
-	if len(miss) > 0 {
-		return b.String(), &SubstitutionError{Missing: miss}
-	}
-	return b.String(), nil
+	return b.String(), miss
 }
 
 // ParseProfileVars parses the @var declarations of a profile file (a *.profile
@@ -110,16 +149,6 @@ func MergeVars(base, override map[string]string) map[string]string {
 		merged[k] = v
 	}
 	return merged
-}
-
-// resolveVar resolves a single placeholder body. A leading "$" selects a
-// built-in function; anything else is looked up in vars.
-func resolveVar(name string, vars map[string]string) (string, bool) {
-	if strings.HasPrefix(name, "$") {
-		return builtinValue(name)
-	}
-	v, ok := vars[name]
-	return v, ok
 }
 
 // builtinValue computes the value of a built-in $-function. Unknown functions
