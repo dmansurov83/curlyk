@@ -41,6 +41,7 @@ func TestCursorPersistOnAutosaveLoop(t *testing.T) {
 		t.Errorf("persisted %+v, want row=3 col=1 scroll=2", p)
 	}
 }
+
 // TestStartupRestoresPerFileCursor simulates closing via the window's X button
 // (no clean quit): only rememberCursor runs, which persists the per-file cursor
 // but not the global one. On restart the per-file cursor should still be

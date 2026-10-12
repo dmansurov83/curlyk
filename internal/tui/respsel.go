@@ -6,11 +6,8 @@ import "strings"
 // above the scrollable body (from m.respHeader, independent of respHeaderLines
 // which is only set during render).
 func respHeaderCount(m *model) int {
-	hdr := strings.TrimRight(m.respHeader, "\n")
-	if hdr == "" {
-		return 0
-	}
-	return len(strings.Split(hdr, "\n"))
+	hdr, _ := m.respLines()
+	return len(hdr)
 }
 
 // respPaneLines returns the response-pane display lines in vertical order:
@@ -18,59 +15,21 @@ func respHeaderCount(m *model) int {
 // space the response-pane selection cursor lives in, so selecting and copying
 // the response headers works like any other visible line.
 func respPaneLines(m *model) []string {
-	var out []string
-	if h := strings.TrimRight(m.respHeader, "\n"); h != "" {
-		out = append(out, strings.Split(h, "\n")...)
-	}
-	return append(out, respBodyLines(m)...)
+	hdr, body := m.respLines()
+	out := make([]string, 0, len(hdr)+len(body))
+	out = append(out, hdr...)
+	return append(out, body...)
 }
 
 // respSelectedText returns the response text covered by the current selection.
+// It shares selectedTextIn with the editor, so a response selection copies
+// exactly like an editor selection.
 func (m *model) respSelectedText() string {
 	if !m.respSelActive {
 		return ""
 	}
-	lines := respPaneLines(m)
-	ar, ac := m.respSelAnchorRow, m.respSelAnchorCol
-	cr, cc := m.respSelCurRow, m.respSelCurCol
-	sr, sc, er, ec := ar, ac, cr, cc
-	if er < sr || (er == sr && ec < sc) {
-		sr, sc, er, ec = cr, cc, ar, ac
-	}
-	if sr < 0 {
-		sr = 0
-	}
-	if er >= len(lines) {
-		er = len(lines) - 1
-	}
-	if er < sr {
-		return ""
-	}
-	var b strings.Builder
-	for r := sr; r <= er; r++ {
-		runes := []rune(lines[r])
-		cs, ce := 0, len(runes)
-		if r == sr {
-			cs = sc
-			if cs > len(runes) {
-				cs = len(runes)
-			}
-		}
-		if r == er {
-			ce = ec
-			if ce > len(runes) {
-				ce = len(runes)
-			}
-		}
-		if ce < cs {
-			ce = cs
-		}
-		b.WriteString(string(runes[cs:ce]))
-		if r < er {
-			b.WriteString("\n")
-		}
-	}
-	return b.String()
+	return selectedTextIn(respPaneLines(m),
+		m.respSelAnchorRow, m.respSelAnchorCol, m.respSelCurRow, m.respSelCurCol)
 }
 
 // respMoveCursor moves the response-selection cursor without modifying the

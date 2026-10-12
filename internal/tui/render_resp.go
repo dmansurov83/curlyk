@@ -37,12 +37,7 @@ func (m *model) renderResponse(width, height int) string {
 		}
 	}
 	// Fixed copy button row right after the headers (does not scroll).
-	var copyBtn string
-	if m.hoverCopyButton() {
-		copyBtn = copyButtonRowHover(contentW)
-	} else {
-		copyBtn = copyButtonRow(contentW)
-	}
+	copyBtn := copyButtonRow(contentW, m.hoverCopyButton())
 	sb.WriteString(copyBtn)
 	sb.WriteString("\n")
 	// Body display lines (raw response text; JSON stays plain).
@@ -145,29 +140,20 @@ func (m *model) respHeaderLineCount() int {
 }
 
 // copyButtonRow renders the clickable "copy response" button line. It is shown
-// in the response pane on a grey background so it reads as a clickable control.
-func copyButtonRow(contentW int) string {
+// in the response pane on a grey background so it reads as a clickable control;
+// hovered paints it with a lighter background so the pointer's target is visible.
+func copyButtonRow(contentW int, hovered bool) string {
 	label := i18n.T("resp.copyButton")
 	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
-	btn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(copyBtnFgColor)).
+	fg, bg := copyBtnFgColor, copyBtnBgColor
+	if hovered {
+		fg, bg = copyHoverFgColor, copyHoverBgColor
+	}
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color(fg)).
 		Bold(true).
-		Background(lipgloss.Color(copyBtnBgColor)).
+		Background(lipgloss.Color(bg)).
 		Render(full)
-	return btn
-}
-
-// copyButtonRowHover renders the copy-button row with a hover highlight (lighter
-// background) so it reads as the pointer being over the button.
-func copyButtonRowHover(contentW int) string {
-	label := i18n.T("resp.copyButton")
-	full := label + strings.Repeat(" ", max(0, contentW-len([]rune(label))))
-	btn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(copyHoverFgColor)).
-		Bold(true).
-		Background(lipgloss.Color(copyHoverBgColor)).
-		Render(full)
-	return btn
 }
 
 // hoverCopyButton reports whether the mouse pointer is over the response copy
@@ -218,14 +204,6 @@ func (m *model) respSelectionForLine(row int) (s, e int, has bool) {
 
 // respBodyLines returns the raw response body lines (excluding the header).
 func respBodyLines(m *model) []string {
-	lines := strings.Split(m.response, "\n")
-	hdr := strings.TrimRight(m.respHeader, "\n")
-	if hdr != "" {
-		hdrCount := len(strings.Split(hdr, "\n"))
-		if hdrCount+1 < len(lines) {
-			return lines[hdrCount+1:]
-		}
-		return nil
-	}
-	return lines
+	_, body := m.respLines()
+	return body
 }

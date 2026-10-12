@@ -45,6 +45,7 @@ func menuItems() []menuItem {
 		{label: i18n.T("menu.run"), run: func(mm *model) tea.Cmd { return mm.runRequest() }},
 		{label: i18n.T("menu.copyCurl"), run: func(mm *model) tea.Cmd { mm.copyAsCurl(); return nil }},
 		{label: i18n.T("menu.formatJson"), run: func(mm *model) tea.Cmd { mm.formatRequestJSON(); return nil }},
+		{label: i18n.T("menu.formBody"), run: func(mm *model) tea.Cmd { mm.beginFormEditor(); return nil }},
 	}
 }
 
@@ -95,7 +96,7 @@ func (m *model) ensureBlankAfterRequestBlock() {
 		if trim == "" {
 			return // already a blank separator
 		}
-		if _, _, ok := looksLikeHeaderLine(lines[end]); ok {
+		if _, _, ok := httpfile.SplitHeaderLine(lines[end]); ok {
 			end++
 			continue
 		}
@@ -240,8 +241,7 @@ func (m *model) activateMenuItem(i int) tea.Cmd {
 // there is no body or the body is not valid JSON.
 func (m *model) formatRequestJSON() {
 	m.ed.sanitize()
-	reqs := httpfile.ParseFile(m.ed.Text())
-	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
+	req := m.requestForCursor()
 	if req == nil || req.Body == "" {
 		m.status = i18n.T("err.noBodyFormat")
 		return

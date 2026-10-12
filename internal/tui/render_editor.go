@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -100,7 +99,7 @@ func (m *model) popupRows() int {
 func (m *model) effEditorVisible() int {
 	visible := m.ed.height
 	if menuH := m.popupRows(); menuH > 0 {
-		eff := m.height - 4 - menuH
+		eff := m.paneInteriorH() - menuH
 		if eff > visible {
 			eff = visible
 		}
@@ -115,7 +114,7 @@ func (m *model) effEditorVisible() int {
 func (m *model) renderEditor(width int) string {
 	m.ed.sanitize()
 	lines := m.ed.Lines()
-	toks := httpfile.Lex(m.ed.Text())
+	toks := m.lexedTokens()
 	visible := m.effEditorVisible()
 	scroll := m.ed.scroll
 	end := scroll + visible
@@ -169,12 +168,7 @@ func (m *model) renderEditor(width int) string {
 		}
 
 		full := lines[i]
-		// Visible content width: pane width minus borders (2) minus gutter (5).
-		// contentW is the number of cells the line text may occupy.
-		contentW := width - 2 - 5
-		if contentW < 8 {
-			contentW = 8
-		}
+		// contentW (above) is the number of cells the line text may occupy.
 		hs := m.ed.hScroll
 		overflow := truncateWidthIsOverflow(full, contentW)
 

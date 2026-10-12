@@ -6,7 +6,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/user/curlyk/internal/completion"
-	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -48,7 +47,7 @@ func (m *model) completeHeight() int {
 	} else {
 		rows = n
 	}
-	cap := m.height - 4
+	cap := m.paneInteriorH()
 	if rows > cap {
 		rows = cap
 	}
@@ -147,7 +146,7 @@ func (m *model) refreshCompletion() {
 // buildCompletionContext collects the candidate words for autocomplete from the
 // current buffer, the active profile and the built-in functions.
 func (m *model) buildCompletionContext() completion.Context {
-	reqs := httpfile.ParseFile(m.ed.Text())
+	reqs := m.parsedRequests()
 	ctx := completion.Context{}
 	seenHost := map[string]bool{}
 

@@ -189,12 +189,8 @@ func parseVarLine(trim string) (string, string) {
 	if name == "" {
 		return "", ""
 	}
-	for i := 0; i < len(name); i++ {
-		c := name[i]
-		ok := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
-		if !ok {
-			return "", ""
-		}
+	if !validAnnotationName(name) {
+		return "", ""
 	}
 	return name, val
 }
@@ -218,14 +214,27 @@ func parseOptionLine(line string) (Option, bool) {
 	if name == "" {
 		return Option{}, false
 	}
-	for i := 0; i < len(name); i++ {
-		c := name[i]
-		ok := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
-		if !ok {
-			return Option{}, false
-		}
+	if !validAnnotationName(name) {
+		return Option{}, false
 	}
 	return Option{Name: name, Value: value}, true
+}
+
+// validAnnotationName reports whether s is a valid name for an "@name"/"@var"
+// annotation or a processing option: non-empty and made of ASCII letters, digits
+// and hyphens.
+func validAnnotationName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		ok := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // joinBody trims leading blank lines of the body and returns it joined.

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -47,7 +46,7 @@ func (m *model) beginNav() {
 // buildNavEntries parses the editor text and returns one entry per request.
 func (m *model) buildNavEntries() []navEntry {
 	m.ed.sanitize()
-	reqs := httpfile.ParseFile(m.ed.Text())
+	reqs := m.parsedRequests()
 	entries := make([]navEntry, 0, len(reqs))
 	for _, r := range reqs {
 		label := r.Name
@@ -192,7 +191,7 @@ func (m *model) navHeight() int {
 	} else {
 		rows += v
 	}
-	cap := m.height - 4
+	cap := m.paneInteriorH()
 	if rows > cap {
 		rows = cap
 	}

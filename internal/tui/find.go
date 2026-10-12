@@ -23,9 +23,12 @@ type searchBox struct {
 
 // findMatch is one occurrence of the search query on a response body line. col
 // is the rune index where the match starts; the match covers
-// [col, col+queryLen) in runes.
+// [col, col+len(query)) in runes. idx is the match's position in the flat,
+// reading-order numbering (see findFlat), precomputed so highlighting a line
+// does not have to walk every earlier line to find out which match is current.
 type findMatch struct {
 	col int
+	idx int
 }
 
 // findStyle highlights all non-current matches; findCurStyle highlights the
@@ -44,6 +47,7 @@ func (m *model) openSearch(target pane, initial string) {
 	ti.CursorEnd()
 	m.search = &searchBox{input: &ti, target: target}
 	m.findMatches = nil
+	m.findFlat = nil
 	m.findCur = 0
 	if target == paneResp {
 		m.refreshFind()
@@ -97,13 +101,16 @@ func (m *model) findMatchesFor(query string) [][]findMatch {
 	}
 	q := []rune(strings.ToLower(query))
 	mr := len(q)
-	perLine := make([][]findMatch, len(respBodyLines(m)))
-	for li, ln := range respBodyLines(m) {
+	lines := respBodyLines(m) // split once: its result is reused for every line
+	perLine := make([][]findMatch, len(lines))
+	idx := 0
+	for li, ln := range lines {
 		low := []rune(strings.ToLower(ln))
 		var lineMatches []findMatch
 		for i := 0; i+mr <= len(low); i++ {
 			if string(low[i:i+mr]) == string(q) {
-				lineMatches = append(lineMatches, findMatch{col: i})
+				lineMatches = append(lineMatches, findMatch{col: i, idx: idx})
+				idx++
 			}
 		}
 		perLine[li] = lineMatches
@@ -129,39 +136,33 @@ func flattenFind(per [][]findMatch) []findFlat {
 	return out
 }
 
+// findFlatList returns the flat, sequential view of the response matches, in
+// reading order. The slice is built once when the matches are computed
+// (refreshFind) and reused afterwards, so the counter and the match navigation
+// do not rebuild it on every frame.
+func (m *model) findFlatList() []findFlat {
+	if m.findFlat == nil && len(m.findMatches) > 0 {
+		m.findFlat = flattenFind(m.findMatches)
+	}
+	return m.findFlat
+}
+
 // refreshFind recomputes response matches after the query changed and snaps the
-// current match to the first match on/after the current viewport.
+// current match to the first match on/after the current viewport. The flat
+// numbering used by the counter and by navigation is built here, once per query.
 func (m *model) refreshFind() {
 	m.findMatches = m.findMatchesFor(m.searchQuery())
-	if m.findCur >= len(m.findMatches) {
+	m.findFlat = flattenFind(m.findMatches)
+	if m.findCur >= len(m.findFlat) {
 		m.findCur = 0
 	}
 	m.scrollToCurrentMatch()
 	m.active = paneResp
 }
 
-// findGlobalIndex returns the flat (sequential) index of the match on body line
-// `line` at rune column `col`, or -1 when it is not among the current matches.
-func (m *model) findGlobalIndex(line, col int) int {
-	idx := 0
-	for li := 0; li < line; li++ {
-		idx += len(m.findMatches[li])
-	}
-	for _, mm := range m.findMatches[line] {
-		if mm.col == col {
-			return idx
-		}
-		idx++
-	}
-	return -1
-}
-
 // nextFind moves to the next response match (wrap) and scrolls it into view.
 func (m *model) nextFind() {
-	if len(m.findMatches) == 0 {
-		return
-	}
-	flat := flattenFind(m.findMatches)
+	flat := m.findFlatList()
 	n := len(flat)
 	if n == 0 {
 		return
@@ -177,10 +178,7 @@ func (m *model) nextFind() {
 
 // prevFind moves to the previous response match (wrap) and scrolls it into view.
 func (m *model) prevFind() {
-	if len(m.findMatches) == 0 {
-		return
-	}
-	n := len(flattenFind(m.findMatches))
+	n := len(m.findFlatList())
 	if n == 0 {
 		return
 	}
@@ -197,7 +195,7 @@ func (m *model) prevFind() {
 // body line is centred vertically, and the match column is scrolled horizontally
 // so it is visible (and centred when the line is wider than the pane).
 func (m *model) scrollToCurrentMatch() {
-	flat := flattenFind(m.findMatches)
+	flat := m.findFlatList()
 	if len(flat) == 0 {
 		return
 	}
@@ -210,7 +208,7 @@ func (m *model) scrollToCurrentMatch() {
 	// fixed header + copy rows. Centre the matched body line within the
 	// remaining viewport; clamp so the top of the body (scroll 0) and the last
 	// line are still reachable.
-	vis := m.height - 6 - m.respHeaderLines
+	vis := m.paneContentH() - m.respHeaderLines
 	if vis < 3 {
 		// Too small to centre meaningfully: keep the simple reveal.
 		if vis < 1 {
@@ -272,7 +270,7 @@ func (m *model) scrollToMatchColumn(line, col int) {
 
 // findCountText returns the "current/total" counter for the response search.
 func (m *model) findCountText() string {
-	total := len(flattenFind(m.findMatches))
+	total := len(m.findFlatList())
 	if total == 0 {
 		return "0/0"
 	}
@@ -288,6 +286,7 @@ func (m *model) closeSearch() {
 	}
 	m.search = nil
 	m.findMatches = nil
+	m.findFlat = nil
 	m.findCur = 0
 }
 
@@ -452,7 +451,7 @@ func (m *model) colorizeFindLine(hi int, origLn, visLn string, contentW int, sel
 			continue // match lies entirely outside the visible window
 		}
 		k := 1
-		if m.findGlobalIndex(bodyIdx, mm.col) == m.findCur {
+		if mm.idx == m.findCur {
 			k = 2
 		}
 		from := max(0, local)

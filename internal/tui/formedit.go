@@ -86,8 +86,7 @@ func encodeForm(fields []formField) string {
 // request line.
 func (m *model) beginFormEditor() {
 	m.ed.sanitize()
-	reqs := httpfile.ParseFile(m.ed.Text())
-	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
+	req := m.requestForCursor()
 	if req == nil {
 		m.status = i18n.T("err.noRequestCursor")
 		return
@@ -267,33 +266,13 @@ func (m *model) formBodyInsertIndex(anchorRow int) int {
 	lines := m.ed.Lines()
 	i := anchorRow + 1
 	for i < len(lines) {
-		if _, _, ok := looksLikeHeaderLine(lines[i]); ok {
+		if _, _, ok := httpfile.SplitHeaderLine(lines[i]); ok {
 			i++
 			continue
 		}
 		break
 	}
 	return i
-}
-
-// looksLikeHeaderLine mirrors httpfile.splitHeaderLine for the editor insertion
-// logic: a line "Name: value" where Name is a valid token.
-func looksLikeHeaderLine(line string) (string, string, bool) {
-	idx := strings.IndexRune(line, ':')
-	if idx <= 0 {
-		return "", "", false
-	}
-	name := line[:idx]
-	for i := 0; i < len(name); i++ {
-		c := name[i]
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
-			c == '-' || c == '_' || c == '!' || c == '#' || c == '$' || c == '%' ||
-			c == '&' || c == '\'' || c == '*' || c == '+' || c == '.' || c == '^' ||
-			c == '`' || c == '|' || c == '~') {
-			return "", "", false
-		}
-	}
-	return name, strings.TrimLeft(line[idx+1:], " "), true
 }
 
 // replaceLines returns lines with the half-open [start, end) range (0-based)
@@ -352,7 +331,7 @@ func (m *model) formHeight() int {
 	} else {
 		rows++
 	}
-	if cap := m.height - 4; rows > cap {
+	if cap := m.paneInteriorH(); rows > cap {
 		rows = cap
 	}
 	if rows < 0 {

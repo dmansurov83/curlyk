@@ -40,7 +40,7 @@ func TestDoubleClickWordSelection(t *testing.T) {
 
 	// Click twice on the URL area quickly, reassigning m each time.
 	// Rune col 8 is inside "https://x.com" (cols 4..15).
-	x := el + 6 + 8 // screen x: files + border+icon+num+col
+	x := el + 6 + 8       // screen x: files + border+icon+num+col
 	y := headerHeight + 1 // row 0
 
 	var mm tea.Model = m

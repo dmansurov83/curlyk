@@ -242,25 +242,12 @@ func (m *model) openPanelFile() {
 
 // refreshFilesPanel rescans the working directory for .http files.
 func (m *model) refreshFilesPanel() {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		return
-	}
-	var files []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(strings.ToLower(e.Name()), ".http") {
-			files = append(files, e.Name())
-		}
-	}
 	if m.filesPanel == nil {
 		m.filesPanel = &filesPanel{}
 	}
 	p := m.filesPanel
 	p.loadProfiles()
-	p.all = files
+	p.all = httpFilesInDir(".")
 	// keep selection within bounds
 	if p.sel >= len(p.filtered()) {
 		p.sel = 0

@@ -158,7 +158,7 @@ func (m *model) helpScrollMax() int {
 		width = 10
 	}
 	full := helpFullLines(width - 2)
-	paneH := m.height - 6
+	paneH := m.paneContentH()
 	if paneH < 1 {
 		paneH = 1
 	}

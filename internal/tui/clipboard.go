@@ -5,7 +5,6 @@ import (
 
 	"github.com/atotto/clipboard"
 	"github.com/user/curlyk/internal/curl"
-	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -55,37 +54,14 @@ func writeClipboardSafe(s string) error {
 // resolved exactly like when running the request, so the copied command
 // contains concrete values (falls back to the active profile's @var).
 func (m *model) copyAsCurl() {
-	reqs := httpfile.ParseFile(m.ed.Text())
-	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
+	req := m.requestForCursor()
 	if req == nil {
 		m.status = i18n.T("err.noRequest")
 		return
 	}
-	vars := req.Vars
-	if pv := m.activeProfileVars(); len(pv) > 0 {
-		vars = httpfile.MergeVars(pv, vars) // local (vars) overrides profile (pv)
-	}
-	sub, subErr := httpfile.Substitute(req.URL, vars)
-	if subErr != nil {
-		m.status = i18n.T("err.variable", subErr.(*httpfile.SubstitutionError).First())
+	if err := m.resolveRequestVars(req); err != nil {
+		m.status = substitutionMessage(err)
 		return
-	}
-	req.URL = sub
-	for i := range req.Headers {
-		if hv, herr := httpfile.Substitute(req.Headers[i].Value, vars); herr != nil {
-			m.status = i18n.T("err.variable", herr.(*httpfile.SubstitutionError).First())
-			return
-		} else {
-			req.Headers[i].Value = hv
-		}
-	}
-	if req.Body != "" {
-		if bv, berr := httpfile.Substitute(req.Body, vars); berr != nil {
-			m.status = i18n.T("err.variable", berr.(*httpfile.SubstitutionError).First())
-			return
-		} else {
-			req.Body = bv
-		}
 	}
 	var headers []string
 	for _, h := range req.Headers {
@@ -223,24 +199,8 @@ func (m *model) pasteOrConvert(text string) {
 		return
 	}
 
-	// insert across lines
-	text = normalizeNewlines(text)
-	lines := strings.Split(text, "\n")
-	if len(lines) == 1 {
-		m.ed.InsertString(lines[0])
-		m.ed.clampCol()
-		m.ed.EnsureVisible()
-	} else {
-		// multi-line paste: insert on current line, then new lines
-		first := lines[0]
-		m.ed.InsertString(first)
-		// insert remaining lines
-		for li := 1; li < len(lines); li++ {
-			m.ed.Enter()
-			m.ed.InsertString(lines[li])
-		}
-		m.ed.EnsureVisible()
-	}
+	// insert across lines (shared with the cURL import path)
+	m.insertText(text)
 	m.status = i18n.T("status.pasted")
 }
 

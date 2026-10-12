@@ -214,7 +214,7 @@ func (m *model) dialogFrame() string {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(dialogBorderColor)).
-		Width(drawW + 2*dialogPad).
+		Width(drawW+2*dialogPad).
 		Padding(0, dialogPad).
 		Render(inner)
 }
@@ -266,7 +266,7 @@ func (m *model) dialogGeom() (int, int) {
 	if x0 < 0 {
 		x0 = 0
 	}
-	paneH := m.height - 3 // headerHeight(1) above, status bar(1) below
+	paneH := m.paneRowH() - 1 // kept one row short so the frame never touches the status bar
 	if paneH < 1 {
 		paneH = 1
 	}

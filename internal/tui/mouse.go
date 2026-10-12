@@ -532,7 +532,7 @@ func (m *model) clickEditorScrollbar(y int) {
 // clickRespScrollbar sets the response scroll from a click on its scrollbar.
 func (m *model) clickRespScrollbar(y int) {
 	lines := respBodyLines(m)
-	vis := m.height - 6 - m.respHeaderLines // scrollable body rows
+	vis := m.paneContentH() - m.respHeaderLines // scrollable body rows
 	total := len(lines)
 	mx := total - vis
 	if mx < 0 {

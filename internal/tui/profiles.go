@@ -65,7 +65,7 @@ func (m *model) fileListMaxRows() int {
 
 // filesPaneH returns the number of interior rows of the left files pane.
 func (m *model) filesPaneH() int {
-	h := m.height - 6
+	h := m.paneContentH()
 	if h < 0 {
 		h = 0
 	}

@@ -273,6 +273,14 @@ func (e *editor) moveWordRight() {
 // SelectedText returns the text covered by the range [anchor, cursor].
 // The caller normalizes start/end. Returns "" if the selection is collapsed.
 func (e *editor) SelectedText(anchorRow, anchorCol, curRow, curCol int) string {
+	return selectedTextIn(e.lines, anchorRow, anchorCol, curRow, curCol)
+}
+
+// selectedTextIn returns the text covered by the range [anchor, cursor] over a
+// slice of lines; endpoints are 0-based row and rune column, either order.
+// It is the single implementation shared by the editor buffer and the response
+// pane, so text selects and copies identically in both.
+func selectedTextIn(lines []string, anchorRow, anchorCol, curRow, curCol int) string {
 	sr, sc, er, ec := anchorRow, anchorCol, curRow, curCol
 	if er < sr || (er == sr && ec < sc) {
 		sr, sc, er, ec = er, ec, sr, sc
@@ -280,16 +288,15 @@ func (e *editor) SelectedText(anchorRow, anchorCol, curRow, curCol int) string {
 	if sr < 0 {
 		sr = 0
 	}
-	if er >= len(e.lines) {
-		er = len(e.lines) - 1
+	if er >= len(lines) {
+		er = len(lines) - 1
 	}
 	if er < sr {
 		return ""
 	}
 	var b strings.Builder
 	for r := sr; r <= er; r++ {
-		line := e.lines[r]
-		runes := []rune(line)
+		runes := []rune(lines[r])
 		cs, ce := 0, len(runes)
 		if r == sr {
 			cs = sc

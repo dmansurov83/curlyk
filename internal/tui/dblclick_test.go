@@ -75,4 +75,3 @@ func TestSingleClickClearsSelection(t *testing.T) {
 		t.Error("single click should clear the selection")
 	}
 }
-

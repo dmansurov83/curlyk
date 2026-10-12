@@ -226,6 +226,15 @@ func tokenizeRequestLine(line, method, urlStr, httpVer string) []Token {
 // token characters. This rejects JSON/URL bodies starting with '{', '[', '"',
 // digits, etc. from being misread as header names.
 func splitHeaderLine(line string) (string, string, bool) {
+	return SplitHeaderLine(line)
+}
+
+// SplitHeaderLine reports whether a source line is an HTTP header line and,
+// if so, returns its field name and value (leading spaces of the value
+// stripped). It is the single definition of "this line is a header", shared by
+// the parser, the highlighter and the editor's insertion logic, so the three can
+// never disagree about where a header block ends.
+func SplitHeaderLine(line string) (string, string, bool) {
 	idx := strings.IndexRune(line, ':')
 	if idx <= 0 {
 		return "", "", false

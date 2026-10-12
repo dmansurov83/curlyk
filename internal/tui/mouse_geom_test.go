@@ -21,7 +21,7 @@ func TestMouseGeometryConsistency(t *testing.T) {
 		{0}, {1}, {2}, {3}, {9}, {12},
 	}
 	for _, tc := range cases {
-		x := el+6 + tc.runeCol
+		x := el + 6 + tc.runeCol
 		y := headerHeight + 1 // row 0 is at screen y=headerHeight+1 (below header & top border)
 		row, col, _ := mouseToEditorCell(&m, x, y)
 		if row != 0 {

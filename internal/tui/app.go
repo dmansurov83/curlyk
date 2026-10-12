@@ -86,6 +86,10 @@ type model struct {
 	// findCur is the flat index into the response matches of the currently
 	// selected match.
 	findCur int
+	// findFlat is the flattened, reading-order view of findMatches, built once
+	// per query by refreshFind so the counter and the match navigation reuse it
+	// instead of rebuilding it on every frame.
+	findFlat []findFlat
 	// dirty tracks whether the editor has unsaved changes since the last save.
 	dirty bool
 	// autosaveDeadline is the time until which edits keep postponing the save.
@@ -132,6 +136,10 @@ type model struct {
 	// typed (nil when closed). While non-nil it consumes a subset of keys (see
 	// handleCompletionKey).
 	complete *completionMenu
+	// cache memoizes the derived views of the editor buffer and the response
+	// between frames and keystrokes (see cache.go). It is a pointer because the
+	// model is copied by value on every update.
+	cache *viewCache
 }
 
 // editorPos captures where the cursor was left in a file (canonical path key).
@@ -146,6 +154,7 @@ func initialModel() model {
 		status: i18n.T("ready.initial"),
 		hoverX: -1,
 		hoverY: -1,
+		cache:  &viewCache{},
 	}
 }
 
@@ -263,6 +272,7 @@ func New(args Args) tea.Model {
 		height:     h,
 		hoverX:     -1,
 		hoverY:     -1,
+		cache:      &viewCache{},
 	}
 }
 
@@ -323,8 +333,8 @@ func (m *model) editorMaxScroll() int {
 // respMaxScroll returns the maximum scroll offset for the response body pane.
 func (m *model) respMaxScroll() int {
 	lines := respBodyLines(m)
-	// visible scrollable rows: content height minus copy button and header
-	vis := m.height - 6 - m.respHeaderLines
+	// visible scrollable rows: content height minus the header rows
+	vis := m.paneContentH() - m.respHeaderLines
 	if vis < 0 {
 		vis = 0
 	}
@@ -354,9 +364,6 @@ func (m *model) clampEditorScroll() {
 const (
 	paneContentX = 1 // first content column after left border
 	textColAbs   = 6 // absolute pane column where source text starts
-	// headerHeight is the number of fixed rows drawn above the panes (the
-	// file-name header). Mouse and scrollbar coordinate math must account for it.
-	headerHeight = 1
 )
 
 // selectionForLine returns the rune-column selection range on a given 0-based
@@ -404,7 +411,7 @@ func isRequestLine(lines []string, row int) bool {
 func (m *model) dumpDebug() {
 	var b strings.Builder
 	lines := m.ed.Lines()
-	req := httpfile.GetRequestAtLine(httpfile.ParseFile(m.ed.Text()), m.ed.curRow+1)
+	req := httpfile.GetRequestAtLine(m.parsedRequests(), m.ed.curRow+1)
 	b.WriteString("== HTTP Tool debug dump ==\n")
 	b.WriteString(fmt.Sprintf("time:         %s\n", time.Now().Format("15:04:05")))
 	b.WriteString(fmt.Sprintf("width:        %d\n", m.width))
@@ -458,10 +465,16 @@ func (m *model) dumpDebug() {
 }
 
 func paneName(p pane) string {
-	if p == paneEdit {
+	switch p {
+	case paneEdit:
 		return "edit"
+	case paneResp:
+		return "response"
+	case paneFiles:
+		return "files"
+	default:
+		return "unknown"
 	}
-	return "response"
 }
 
 func stateName(s runState) string {
@@ -520,8 +533,7 @@ func (m *model) runRequest() tea.Cmd {
 		return nil
 	}
 	m.ed.sanitize()
-	reqs := httpfile.ParseFile(m.ed.Text())
-	req := httpfile.GetRequestAtLine(reqs, m.ed.curRow+1)
+	req := m.requestForCursor()
 	if req == nil {
 		m.status = i18n.T("err.noRequestCursor")
 		m.active = paneEdit
@@ -531,41 +543,13 @@ func (m *model) runRequest() tea.Cmd {
 	m.status = i18n.T("status.running", req.Method, req.URL)
 	// Resolve {{name}} / {{$fn}} placeholders before building the request.
 	// An unresolved placeholder aborts the run with a clear message instead of
-	// silently sending a raw "{{x}}" on the wire.
-	// The active profile, if any, supplies fallback @var values. File-level
-	// (@var in the .http) values win over the profile; the profile fills in
-	// anything the file does not define.
-	vars := req.Vars
-	if pv := m.activeProfileVars(); len(pv) > 0 {
-		vars = httpfile.MergeVars(pv, vars) // local (vars) overrides profile (pv)
-	}
-	sub, subErr := httpfile.Substitute(req.URL, vars)
-	if subErr != nil {
+	// silently sending a raw "{{x}}" on the wire (same resolution as Copy as
+	// cURL — see resolveRequestVars).
+	if err := m.resolveRequestVars(req); err != nil {
 		m.state = stateIdle
-		m.status = i18n.T("err.variable", subErr.(*httpfile.SubstitutionError).First())
+		m.status = substitutionMessage(err)
 		m.active = paneEdit
 		return nil
-	}
-	req.URL = sub
-	for i := range req.Headers {
-		hv, herr := httpfile.Substitute(req.Headers[i].Value, vars)
-		if herr != nil {
-			m.state = stateIdle
-			m.status = i18n.T("err.variable", herr.(*httpfile.SubstitutionError).First())
-			m.active = paneEdit
-			return nil
-		}
-		req.Headers[i].Value = hv
-	}
-	if req.Body != "" {
-		bv, berr := httpfile.Substitute(req.Body, vars)
-		if berr != nil {
-			m.state = stateIdle
-			m.status = i18n.T("err.variable", berr.(*httpfile.SubstitutionError).First())
-			m.active = paneEdit
-			return nil
-		}
-		req.Body = bv
 	}
 	opts, optErr := runner.ApplyOptions(*req, runner.Options{FollowRedirects: false})
 	if optErr != nil {

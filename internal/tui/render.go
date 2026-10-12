@@ -24,7 +24,7 @@ func (m model) View() string {
 	if mid < 15 {
 		mid = fw
 	}
-	respH := m.height - 6
+	respH := m.paneContentH()
 
 	filesView := m.renderFilesPanel(fw, respH)
 	edView := m.renderEditor(mid)
@@ -41,19 +41,19 @@ func (m model) View() string {
 	pan := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderColor(m.active == paneFiles))).
-		Width(fw).Height(m.height - 4).
+		Width(fw).Height(m.paneInteriorH()).
 		Render(filesView)
 
 	left := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderColor(m.active == paneEdit))).
-		Width(mid).Height(m.height - 4).
+		Width(mid).Height(m.paneInteriorH()).
 		Render(edView)
 
 	right := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderColor(m.active == paneResp))).
-		Width(respW).Height(m.height - 4).
+		Width(respW).Height(m.paneInteriorH()).
 		Render(respView)
 
 	bar := m.renderStatus(m.width)
