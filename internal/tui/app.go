@@ -72,9 +72,6 @@ type model struct {
 	actionMenu *actionMenu
 	// navigation popup shown on Ctrl+G (nil when closed)
 	nav *navMenu
-	// form editor popup (key=value body editor) opened from the actions menu
-	// (nil when closed)
-	form *formEditor
 	// search is the unified top-row search box open over a non-edit panel (the
 	// file list or the response). It consumes all keys while non-nil and is
 	// rendered on the top frame row. target says which panel it filters.

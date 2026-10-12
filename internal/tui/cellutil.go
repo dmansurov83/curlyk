@@ -150,3 +150,18 @@ func shiftTokensForWindow(toks []httpfile.Token, byteStart, byteEnd int) []httpf
 	}
 	return out
 }
+
+// insertLines returns lines with block inserted at index pos (0-based).
+func insertLines(lines []string, pos int, block []string) []string {
+	if pos < 0 {
+		pos = 0
+	}
+	if pos > len(lines) {
+		pos = len(lines)
+	}
+	var out []string
+	out = append(out, lines[:pos]...)
+	out = append(out, block...)
+	out = append(out, lines[pos:]...)
+	return out
+}

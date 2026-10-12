@@ -115,15 +115,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Form editor popup: while open it consumes all keys.
-	if m.form != nil {
-		if msg.String() == "ctrl+enter" {
-			m.commitForm()
-		}
-		m.handleFormKey(msg)
-		return m, nil
-	}
-
 	// Request action popup: while open it consumes all keys.
 	if cmd, handled := m.handleMenuKey(msg); handled {
 		return m, cmd

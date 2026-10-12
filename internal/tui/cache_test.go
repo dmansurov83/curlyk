@@ -49,7 +49,7 @@ func TestRequestForCursorLeavesCachedParseIntact(t *testing.T) {
 
 // TestParsedRequestsFollowBufferEdits verifies the request cache is invalidated
 // when the buffer text changes, however the change was made (an editor method or
-// a direct lines assignment, as the action menu and the form editor do).
+// a direct lines assignment, as the action menu does).
 func TestParsedRequestsFollowBufferEdits(t *testing.T) {
 	m := New(Args{Width: 120, Height: 30}).(model)
 	m.ed.SetText("GET http://a/1\n")

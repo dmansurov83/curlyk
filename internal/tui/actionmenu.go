@@ -45,7 +45,6 @@ func menuItems() []menuItem {
 		{label: i18n.T("menu.run"), run: func(mm *model) tea.Cmd { return mm.runRequest() }},
 		{label: i18n.T("menu.copyCurl"), run: func(mm *model) tea.Cmd { mm.copyAsCurl(); return nil }},
 		{label: i18n.T("menu.formatJson"), run: func(mm *model) tea.Cmd { mm.formatRequestJSON(); return nil }},
-		{label: i18n.T("menu.formBody"), run: func(mm *model) tea.Cmd { mm.beginFormEditor(); return nil }},
 	}
 }
 
