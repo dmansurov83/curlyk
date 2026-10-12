@@ -3,8 +3,10 @@ package tui
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -283,6 +285,9 @@ func Snapshot(args Args) string {
 type runResultMsg struct {
 	res  *runner.Result
 	body []byte
+	// reqBody is the request body actually sent (after {{var}} substitution),
+	// shown in the request dump above the response.
+	reqBody string
 }
 
 func (m model) Init() tea.Cmd {
@@ -556,6 +561,7 @@ func (m *model) runRequest() tea.Cmd {
 		return nil
 	}
 	clientTimeout := opts.TimeoutOrDefault()
+	reqBody := req.Body
 	return func() tea.Msg {
 		dur := clientTimeout
 		if dur < 0 {
@@ -565,13 +571,13 @@ func (m *model) runRequest() tea.Cmd {
 		defer cancel()
 		res := runner.Run(ctx, *req, opts)
 		if res.Err != nil {
-			return runResultMsg{res: res}
+			return runResultMsg{res: res, reqBody: reqBody}
 		}
 		body, err := runner.BodyBytes(res.Response)
 		if err != nil {
-			return runResultMsg{res: res}
+			return runResultMsg{res: res, reqBody: reqBody}
 		}
-		return runResultMsg{res: res, body: body}
+		return runResultMsg{res: res, body: body, reqBody: reqBody}
 	}
 }
 
@@ -588,6 +594,10 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 		// can read, scroll and copy the failure just like a real response.
 		m.status = i18n.T("err.network", res.Err.Error())
 		var hdr strings.Builder
+		if res.Request != nil {
+			hdr.WriteString(dumpRequest(res.Request, msg.reqBody))
+			hdr.WriteString("\n")
+		}
 		hdr.WriteString(i18n.T("resp.netFailed") + "\n")
 		if res.Request != nil {
 			hdr.WriteString(res.Request.Method + " " + res.Request.URL.String() + "\n")
@@ -607,6 +617,11 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	}
 	var b strings.Builder
 	var hdr strings.Builder
+	// Show the actual request that was sent (method, URL, headers) above the
+	// response, so the user can verify the assembled URL after multi-line
+	// continuation or {{var}} substitution.
+	hdr.WriteString(dumpRequest(res.Request, msg.reqBody))
+	hdr.WriteString("\n")
 	hdr.WriteString(res.Request.Proto + " " + res.Status + "\n")
 	hdr.WriteString(i18n.T("resp.duration", res.Duration.Round(time.Millisecond).String()) + "\n")
 	res.Response.Header.Write(&hdr)
@@ -626,8 +641,40 @@ func (m model) applyResponse(msg runResultMsg) tea.Model {
 	return m.setResponse(b.String(), hdrStr, msg.body)
 }
 
-// respContentWidth returns the display width of the response pane body in
-// cells, mirroring how renderResponse computes contentW.
+// dumpRequest renders the request that was actually sent as a small text block:
+// the request line (METHOD URL), one line per header (sorted), then a blank
+// line and the request body (if any). It shows the resolved URL and body seen on
+// the wire (after multi-line continuation and {{var}} substitution).
+func dumpRequest(r *http.Request, body string) string {
+	if r == nil {
+		return ""
+	}
+	var b strings.Builder
+	path := r.URL.RequestURI()
+	if path == "" {
+		path = "/"
+	}
+	line := r.Method + " " + r.URL.Scheme + "://" + r.URL.Host + path
+	b.WriteString(line + "\n")
+	// A stable, header-name->values dump (sorted) so output is deterministic.
+	names := make([]string, 0, len(r.Header))
+	for k := range r.Header {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		for _, v := range r.Header[k] {
+			b.WriteString(k + ": " + v + "\n")
+		}
+	}
+	if body != "" {
+		b.WriteString("\n")
+		b.WriteString(body)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 func (m *model) respContentWidth() int {
 	fw := m.filesWidth()
 	mid := (m.width - fw) / 2

@@ -31,9 +31,30 @@ func ParseFile(src string) []Request {
 	// Variables are file-scoped and available to every request block.
 	fileVars := map[string]string{}
 
+	// urlCont is dropped in favour of a simpler rule: a blank line in header
+	// mode is ignored until the first header is seen (see sawHeader).
+	bodyURLEncoded := false
+
+	// sawHeader is true once a header (Name: value) has been seen in the
+	// current request block. Leading blank lines before the first header are
+	// ignored so the user may leave an empty line after the request line / URL
+	// continuation; a blank line after the first header ends the header block.
+	sawHeader := false
+
+	// blankInHeaders is true once a blank line was seen in header mode before
+	// any header (i.e. the user left an empty line after the request line /
+	// URL continuation). Used to stop a following "@name" from overwriting the
+	// block name: an @name that appears after such a blank line is deferred as
+	// a pending name for the next request instead.
+	blankInHeaders := false
+
 	flush := func() {
 		if seenRequest {
-			cur.Body = joinBody(bodyLines)
+			if bodyURLEncoded {
+				cur.Body = joinURLEncodedBody(bodyLines)
+			} else {
+				cur.Body = joinBody(bodyLines)
+			}
 			if bodyStartLine > 0 {
 				cur.BodyStart = bodyStartLine
 				cur.BodyEnd = bodyEndLine
@@ -49,6 +70,9 @@ func ParseFile(src string) []Request {
 		bodyEndLine = 0
 		pendingName = ""
 		pendingTitle = ""
+		bodyURLEncoded = false
+		sawHeader = false
+		blankInHeaders = false
 	}
 
 	lines := strings.Split(src, "\n")
@@ -75,6 +99,7 @@ func ParseFile(src string) []Request {
 			cur.Method = m
 			cur.URL = urlStr
 			cur.Line = lineNo
+			cur.URLEnd = lineNo
 			// Attach an @name written above the request line.
 			if attachName != "" {
 				cur.Name = attachName
@@ -90,7 +115,7 @@ func ParseFile(src string) []Request {
 		// annotation) and before the next one (anonymous-request annotation).
 		if strings.HasPrefix(trim, "@name") {
 			name := strings.TrimSpace(trim[len("@name"):])
-			if seenRequest && mode != modeBody {
+			if seenRequest && mode != modeBody && !blankInHeaders {
 				cur.Name = name
 			} else {
 				// Before a request line: defer to the next request line.
@@ -119,11 +144,17 @@ func ParseFile(src string) []Request {
 			}
 		}
 
-		// Comment handling depends on mode.
+		// Comment handling depends on mode. A blank line in header mode before the
+		// first header is ignored (not a body separator), so an empty line may be
+		// left after the request line / URL continuation and before the headers.
 		if trim == "" {
 			// Blank line ends the header block (if in headers mode).
-			if mode == modeHeaders {
+			if mode == modeHeaders && sawHeader {
 				mode = modeBody
+			} else if mode == modeHeaders && !sawHeader {
+				// A leading blank line in header mode is tolerated (no body yet);
+				// record it so a following "@name" is not attached to this block.
+				blankInHeaders = true
 			} else if mode == modeBody {
 				bodyLines = append(bodyLines, "") // preserve blank lines inside body
 				bodyEndLine = lineNo
@@ -150,6 +181,22 @@ func ParseFile(src string) []Request {
 			// Try a header first.
 			if name, val, ok := splitHeaderLine(line); ok {
 				cur.Headers = append(cur.Headers, Header{Name: name, Value: val})
+				sawHeader = true
+				if isURLEncodedContentType(name, val) {
+					bodyURLEncoded = true
+				}
+				continue
+			}
+			// An indented non-header line is a URL continuation: it concatenates
+			// (without a space) into the request line's URL. Comments/options
+			// written with indentation are skipped, not treated as URL parts.
+			if isURLContinuationLine(line) {
+				t := strings.TrimSpace(line)
+				if _, ok := parseOptionLine(t); ok {
+					continue
+				}
+				cur.URL += t
+				cur.URLEnd = lineNo
 				continue
 			}
 			// Not a header: fall through to body (line with no colon => body start).
@@ -247,6 +294,58 @@ func joinBody(lines []string) string {
 	joined := strings.Join(lines[start:], "\n")
 	// trim trailing whitespace
 	return strings.TrimRight(joined, " \t\r\n")
+}
+
+// isURLEncodedContentType reports whether an HTTP header line declares a
+// application/x-www-form-urlencoded content type. Used to decide whether the
+// body is joined from multi-line urlencoded parts.
+func isURLEncodedContentType(name, val string) bool {
+	if !strings.EqualFold(name, "Content-Type") {
+		return false
+	}
+	return strings.Contains(strings.ToLower(val), "application/x-www-form-urlencoded")
+}
+
+// joinURLEncodedBody flattens a multi-line urlencoded body into a single line,
+// normalising the JetBrains-style layout: whitespace around a key/value
+// separator and around a leading "&" is dropped, and separate "&" lines fold
+// into the previous value. The result contains no newlines and no stray spaces
+// around separators, so it can be sent as-is.
+func joinURLEncodedBody(lines []string) string {
+	var out string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// A leading separator on its own attaches to the previous part.
+		leadingAmp := strings.HasPrefix(line, "&")
+		if leadingAmp {
+			line = strings.TrimLeft(line, "&")
+			line = strings.TrimSpace(line)
+		}
+		// Normalise "key = value" to "key=value".
+		line = normalizeURLEncodedPart(line)
+		if line == "" {
+			continue
+		}
+		if out != "" {
+			out += "&"
+		}
+		out += line
+	}
+	out = strings.TrimLeft(out, "&")
+	return out
+}
+
+// normalizeURLEncodedPart trims whitespace around a single "=" in a
+// key=value urlencoded part. Parts without "=" are returned trimmed.
+func normalizeURLEncodedPart(part string) string {
+	eq := strings.IndexByte(part, '=')
+	if eq < 0 {
+		return strings.TrimSpace(part)
+	}
+	return strings.TrimSpace(part[:eq]) + "=" + strings.TrimSpace(part[eq+1:])
 }
 
 // separatorTitle extracts the human-readable title from a "###" separator

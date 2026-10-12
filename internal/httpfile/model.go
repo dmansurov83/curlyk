@@ -54,6 +54,11 @@ type Request struct {
 
 	// Line is the 1-based source line where the request line starts.
 	Line int
+
+	// URLEnd is the 1-based source line of the last URL continuation line
+	// (equal to Line when the request fits on a single line). Used to know where
+	// the request block ends when the URL spans several indented lines.
+	URLEnd int
 }
 
 // IsEmpty reports whether this request block has no request line yet.

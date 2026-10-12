@@ -43,6 +43,7 @@ func Lex(src string) []Token {
 	var toks []Token
 	lines := strings.Split(src, "\n")
 	inBody := false
+	inHeader := false
 
 	for li, raw := range lines {
 		line := strings.TrimSuffix(raw, "\r")
@@ -52,6 +53,7 @@ func Lex(src string) []Token {
 		// Blank line: ends body. Special-case: also ends headers.
 		if strings.TrimSpace(line) == "" {
 			inBody = false
+			inHeader = false
 			lineToks = append(lineToks, Token{Type: TokOther, Value: "", Line: lineNo})
 			toks = append(toks, lineToks...)
 			continue
@@ -60,6 +62,7 @@ func Lex(src string) []Token {
 		// Separator ### ...
 		if strings.HasPrefix(line, "###") {
 			inBody = false
+			inHeader = false
 			toks = append(toks, Token{Type: TokSeparator, Value: line, Line: lineNo, Start: 0, End: len(line)})
 			continue
 		}
@@ -87,7 +90,8 @@ func Lex(src string) []Token {
 			for _, t := range lt {
 				toks = append(toks, t)
 			}
-			// After a request line: headers next, body not yet started.
+			// After a request line: headers/URL continuation next, body not yet.
+			inHeader = true
 			continue
 		}
 
@@ -105,6 +109,12 @@ func Lex(src string) []Token {
 			vt := Token{Type: TokHeaderValue, Value: line[valStart:], Line: lineNo, Start: valStart, End: len(line),
 				Vars: findVars(line[valStart:])}
 			toks = append(toks, nt, vt)
+			continue
+		}
+
+		// A URL continuation part in the header zone: colour it as URL.
+		if inHeader && isURLContinuationLine(line) {
+			toks = append(toks, Token{Type: TokURL, Value: line, Line: lineNo, Start: 0, End: len(line), Vars: findVars(line)})
 			continue
 		}
 
@@ -142,6 +152,20 @@ func bodyToken(line string, lineNo int, vars []VarSpan) Token {
 func IsRequestLine(line string) bool {
 	_, _, _, ok := parseRequestLine(line)
 	return ok
+}
+
+// isURLContinuationLine reports whether a line is an indented URL continuation
+// part (used to break a long request URL across several lines). It must start
+// with whitespace and not look like a comment.
+func isURLContinuationLine(line string) bool {
+	if line == "" || (line[0] != ' ' && line[0] != '\t') {
+		return false
+	}
+	t := strings.TrimSpace(line)
+	if t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "//") {
+		return false
+	}
+	return true
 }
 
 // parseRequestLine extracts METHOD, URL and optional HTTP version from a line.

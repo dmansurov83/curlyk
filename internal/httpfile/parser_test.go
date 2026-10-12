@@ -229,3 +229,212 @@ func TestLexOption(t *testing.T) {
 		t.Errorf("method=%v header=%v", hasMethod, hasHeader)
 	}
 }
+
+// TestParseMultiLineURL verifies indented continuation lines after the request
+// line are concatenated into the request URL, and URLEnd tracks the last part.
+func TestParseMultiLineURL(t *testing.T) {
+	src := `### get
+GET http://example.com:8080
+    /api
+    /html
+    /get
+    ?id=123
+    &value=content
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	want := "http://example.com:8080/api/html/get?id=123&value=content"
+	if r.URL != want {
+		t.Errorf("URL=%q want %q", r.URL, want)
+	}
+	if r.URLEnd != 7 {
+		t.Errorf("URLEnd=%d want 7", r.URLEnd)
+	}
+	// No body: header zone swallowed all continuation lines.
+	if r.Body != "" {
+		t.Errorf("body=%q want empty", r.Body)
+	}
+}
+
+// TestParseMultiLineURLTabs verifies tab-indented continuation also concatenates.
+func TestParseMultiLineURLTabs(t *testing.T) {
+	src := "GET http://a/x\n\t/path\n\t?y=1\n"
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	if reqs[0].URL != "http://a/x/path?y=1" {
+		t.Errorf("URL=%q", reqs[0].URL)
+	}
+}
+
+// TestNoURLContinuationWithoutIndent verifies a non-indented non-header line is
+// not treated as a URL continuation: it starts the body (URL stays as-is, and
+// remaining lines become body text), preserving the pre-existing behavior.
+func TestNoURLContinuationWithoutIndent(t *testing.T) {
+	src := `### a
+GET http://example.com:8080
+/api
+Accept: text/plain
+
+{"x":1}
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	if r.URL != "http://example.com:8080" {
+		t.Errorf("URL=%q want unextended", r.URL)
+	}
+	// The non-indented "/api" line starts the body; headers after it are body text.
+	if len(r.Headers) != 0 {
+		t.Errorf("headers=%+v want none (body started at /api)", r.Headers)
+	}
+	wantBody := "/api\nAccept: text/plain\n\n{\"x\":1}"
+	if r.Body != wantBody {
+		t.Errorf("body=%q want %q", r.Body, wantBody)
+	}
+}
+
+// TestParseMultiLineURLThenHeaders verifies headers can directly follow an
+// indented URL continuation (no blank line needed).
+func TestParseMultiLineURLThenHeaders(t *testing.T) {
+	src := `GET http://a
+    /b
+Accept: text/plain
+Accept-Language: ru
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	if r.URL != "http://a/b" {
+		t.Errorf("URL=%q", r.URL)
+	}
+	if len(r.Headers) != 2 {
+		t.Errorf("headers=%+v", r.Headers)
+	}
+}
+
+// TestParseMultiLineURLBlankLineBeforeHeaders verifies a blank line between the
+// URL continuation and the headers is ignored (not a body separator), so the
+// headers still parse.
+func TestParseMultiLineURLBlankLineBeforeHeaders(t *testing.T) {
+	src := `GET http://a
+    /b
+
+Accept: text/plain
+Accept-Language: ru
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	if r.URL != "http://a/b" {
+		t.Errorf("URL=%q", r.URL)
+	}
+	if len(r.Headers) != 2 {
+		t.Errorf("headers=%+v", r.Headers)
+	}
+	if r.Body != "" {
+		t.Errorf("body=%q want empty", r.Body)
+	}
+}
+
+// TestBlankLineBeforeHeadersSingleLine verifies a blank line placed right after
+// the request line (no URL continuation) and before the headers is ignored, so
+// the headers still parse.
+func TestBlankLineBeforeHeadersSingleLine(t *testing.T) {
+	src := `GET http://a/b
+
+Accept: text/plain
+Accept-Language: ru
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	if r.URL != "http://a/b" {
+		t.Errorf("URL=%q", r.URL)
+	}
+	if len(r.Headers) != 2 {
+		t.Errorf("headers=%+v", r.Headers)
+	}
+	if r.Body != "" {
+		t.Errorf("body=%q want empty", r.Body)
+	}
+}
+
+// TestParseMultiLineURLWithVersion verifies a trailing HTTP version stays on
+// the request line and continuation follows.
+func TestParseMultiLineURLWithVersion(t *testing.T) {
+	src := "GET http://a/f HTTP/1.1\n    /more\n"
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	if reqs[0].Method != "GET" || reqs[0].URL != "http://a/f/more" {
+		t.Errorf("req=%s %q", reqs[0].Method, reqs[0].URL)
+	}
+}
+
+// TestParseURLEncodedMultiLine verifies a urlencoded body with indented parts
+// collapses into a single urlencoded sample.
+func TestParseURLEncodedMultiLine(t *testing.T) {
+	src := `POST http://x/post
+Content-Type: application/x-www-form-urlencoded
+
+key1 = value1
+& key2 = value2
+key3=value3
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	r := reqs[0]
+	want := "key1=value1&key2=value2&key3=value3"
+	if r.Body != want {
+		t.Errorf("body=%q want %q", r.Body, want)
+	}
+}
+
+// TestURLEncodedBodyJsonUntouched verifies non-urlencoded bodies stay raw.
+func TestURLEncodedBodyJsonUntouched(t *testing.T) {
+	src := `POST http://x/post
+Content-Type: application/json
+
+line1
+line2
+`
+	reqs := ParseFile(src)
+	if len(reqs) != 1 {
+		t.Fatalf("want 1 request, got %d", len(reqs))
+	}
+	if reqs[0].Body != "line1\nline2" {
+		t.Errorf("body=%q want raw multi-line JSON", reqs[0].Body)
+	}
+}
+
+// TestLexURLContinuation verifies indented continuation lines lex as TokURL in
+// the header zone.
+func TestLexURLContinuation(t *testing.T) {
+	src := "GET http://a/f\n    /more\n    ?q=1\n"
+	toks := Lex(src)
+	var urlVals []string
+	for _, tk := range toks {
+		if tk.Type == TokURL {
+			urlVals = append(urlVals, tk.Value)
+		}
+	}
+	if len(urlVals) != 3 {
+		t.Errorf("expected 3 URL tokens (request line + 2 continuations), got %v", urlVals)
+	}
+}
