@@ -136,6 +136,7 @@ func helpFullLines(width int) []string {
 		padToWidth(helpDescStyle.Render(i18n.T("help.varUUID")), width),
 		padToWidth(helpDescStyle.Render(i18n.T("help.varInt")), width),
 		padToWidth(helpDescStyle.Render(i18n.T("help.varTime")), width),
+		padToWidth(helpDescStyle.Render(i18n.T("help.varB64")), width),
 	}
 	out = append(out, helpVarRows...)
 

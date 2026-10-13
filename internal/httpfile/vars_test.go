@@ -162,6 +162,63 @@ func TestSubstituteBuiltins(t *testing.T) {
 	}
 }
 
+func TestSubstituteArgFunctions(t *testing.T) {
+	vars := map[string]string{"appClientId": "ApiClient", "appSecret": "secret"}
+	// b64 with nested {{}} placeholders inside the argument.
+	out, err := Substitute("{{b64({{appClientId}}:{{appSecret}})}}", vars)
+	if err != nil {
+		t.Fatalf("b64: %v", err)
+	}
+	const want = "QXBpQ2xpZW50OnNlY3JldA==" // base64("ApiClient:secret")
+	if out != want {
+		t.Errorf("b64=%q want %q", out, want)
+	}
+	// b64 with a literal argument (no placeholders).
+	out, err = Substitute("{{base64(hello)}}", vars)
+	if err != nil {
+		t.Fatalf("base64 literal: %v", err)
+	}
+	if out != "aGVsbG8=" {
+		t.Errorf("base64(hello)=%q want aGVsbG8=", out)
+	}
+	// nested b64 inside a plain variable value is resolved too. The full var
+	// map (file + profile merged) is in scope, so the nested refs resolve.
+	vars2 := map[string]string{
+		"appClientId": "ApiClient",
+		"appSecret":   "secret",
+		"auth":        "{{b64({{appClientId}}:{{appSecret}})}}",
+	}
+	out, err = Substitute("Bearer {{auth}}", vars2)
+	if err != nil {
+		t.Fatalf("var chain b64: %v", err)
+	}
+	if out != "Bearer "+want {
+		t.Errorf("var chain b64=%q", out)
+	}
+	// an unknown arg function falls through to an undefined error.
+	if _, err := Substitute("{{rot13(abc)}}", vars); err == nil {
+		t.Error("unknown arg function should be undefined")
+	}
+}
+
+func TestSubstituteURLEscapeFunctions(t *testing.T) {
+	vars := map[string]string{}
+	out, err := Substitute("{{urlencode(a b&c)}}", vars)
+	if err != nil {
+		t.Fatalf("urlencode: %v", err)
+	}
+	if out != "a+b%26c" {
+		t.Errorf("urlencode(a b&c)=%q want a+b%%26c", out)
+	}
+	out, err = Substitute("{{urldecode(a%20b)}}", vars)
+	if err != nil {
+		t.Fatalf("urldecode: %v", err)
+	}
+	if out != "a b" {
+		t.Errorf("urldecode(a%%20b)=%q want 'a b'", out)
+	}
+}
+
 // TestSubstituteNestedVars verifies that a variable whose value references
 // another variable (or built-in) is fully resolved.
 func TestSubstituteNestedVars(t *testing.T) {
@@ -229,6 +286,32 @@ func TestParseProfileVars(t *testing.T) {
 	}
 	if _, ok := vars["empty"]; !ok {
 		t.Errorf("expected empty var to be present")
+	}
+}
+
+func TestParseProfileVarsBareShorthand(t *testing.T) {
+	// The shorthand "@name = value" form (no "@var" prefix) must work too,
+	// e.g. "@appClientId = ApiClient". Lines with no "=" are ignored.
+	src := "@appClientId = ApiClient\n@appSecret = client-secret\n# comment\n@var host = http://x\n@notavardecl\n"
+	vars := ParseProfileVars(src)
+	if vars["appClientId"] != "ApiClient" {
+		t.Errorf("appClientId=%q want ApiClient", vars["appClientId"])
+	}
+	if vars["appSecret"] != "client-secret" {
+		t.Errorf("appSecret=%q want client-secret", vars["appSecret"])
+	}
+	if vars["host"] != "http://x" {
+		t.Errorf("host=%q want http://x (explicit @var must still work)", vars["host"])
+	}
+	if _, ok := vars["notavardecl"]; ok {
+		t.Errorf("bare @name without '=' must be ignored, got %v", vars)
+	}
+}
+
+func TestParseProfileVarsBareRejectsInvalidName(t *testing.T) {
+	vars := ParseProfileVars("@bad name = x\n@123ok = y\n")
+	if len(vars) != 1 || vars["123ok"] != "y" {
+		t.Errorf("ParseProfileVars=%v want only 123ok", vars)
 	}
 }
 

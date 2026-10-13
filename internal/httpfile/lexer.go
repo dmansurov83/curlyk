@@ -308,7 +308,10 @@ var knownMethods = map[string]bool{
 
 func isKnownMethod(s string) bool { return knownMethods[strings.ToUpper(s)] }
 
-// findVars locates {{...}} spans in a string, relative to s.
+// findVars locates {{...}} spans in a string, relative to s. Nested {{...}}
+// groups (e.g. a function argument carrying placeholders like
+// {{b64({{a}}:{{b}})}}) are matched as a single outer span, so word-like
+// highlighting covers the whole construct instead of stopping at the inner "}}".
 func findVars(s string) []VarSpan {
 	var spans []VarSpan
 	for i := 0; i < len(s); {
@@ -317,11 +320,28 @@ func findVars(s string) []VarSpan {
 			break
 		}
 		start := i + open
-		closeIdx := strings.Index(s[start+2:], "}}")
-		if closeIdx < 0 {
+		// Walk to the "}}" that closes this placeholder, skipping nested "{{"
+		// groups (depth-aware). Mirrors the substitution scanner.
+		depth := 1
+		end := -1
+		for j := start + 2; j < len(s)-1; {
+			if s[j] == '}' && s[j+1] == '}' {
+				depth--
+				if depth == 0 {
+					end = j + 2
+					break
+				}
+				j += 2
+			} else if s[j] == '{' && s[j+1] == '{' {
+				depth++
+				j += 2
+			} else {
+				j++
+			}
+		}
+		if end < 0 {
 			break
 		}
-		end := start + 2 + closeIdx + 2
 		spans = append(spans, VarSpan{Start: start, End: end})
 		i = end
 	}

@@ -1,6 +1,9 @@
 package httpfile
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseSimple(t *testing.T) {
 	src := `### Get todos
@@ -56,6 +59,32 @@ func TestLexHighlight(t *testing.T) {
 				t.Errorf("expected 1 var in URL, got %d", len(tk.Vars))
 			}
 		}
+	}
+}
+
+// TestLexHighlightVarSpans verifies that TokVariable spans covering a nested
+// function call {{b64({{a}}:{{b}})}} are one whole span, so highlighting covers
+// the entire construct rather than stopping at the inner "}}".
+func TestFindVarsNestedFn(t *testing.T) {
+	src := `GET http://x/
+Authorization: Basic {{b64({{a}}:{{b}})}}
+`
+	toks := Lex(src)
+	var found *Token
+	for i := range toks {
+		if toks[i].Type == TokHeaderValue && len(toks[i].Vars) == 1 {
+			found = &toks[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected a headerValue token with 1 var span, got %+v", toks)
+	}
+	span := found.Vars[0]
+	want := "{{b64({{a}}:{{b}})}}"
+	if !strings.Contains(found.Value[span.Start:span.End], "b64") ||
+		span.End-span.Start != len(want) {
+		t.Errorf("span=%d:%d value=%q want whole %q", span.Start, span.End, found.Value[span.Start:span.End], want)
 	}
 }
 

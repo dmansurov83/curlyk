@@ -217,6 +217,7 @@ var builtinFuncNames = []string{
 	"$random.uuid",
 	"$random.int",
 	"$guid",
+	"b64",
 }
 
 // appendUnique appends s to list when not already present.

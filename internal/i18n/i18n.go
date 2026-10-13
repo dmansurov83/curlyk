@@ -77,6 +77,7 @@ var catalogs = map[string]map[string]string{
 		"help.varUUID":  "{{$random.uuid}} — случайный UUID",
 		"help.varInt":   "{{$random.int}} — случайное число",
 		"help.varTime":  "{{$timestamp}} / {{$isoTimestamp}} — время",
+		"help.varB64":   "{{b64(текст)}} — base64-кодирование",
 
 		// render.go
 		"loading.editor": "Загрузка редактора...",
@@ -220,6 +221,7 @@ var catalogs = map[string]map[string]string{
 		"help.varUUID":  "{{$random.uuid}} — random UUID",
 		"help.varInt":   "{{$random.int}} — random number",
 		"help.varTime":  "{{$timestamp}} / {{$isoTimestamp}} — time",
+		"help.varB64":   "{{b64(text)}} — base64 encoding",
 
 		// render.go
 		"loading.editor": "Loading editor...",
