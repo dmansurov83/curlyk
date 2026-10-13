@@ -340,7 +340,7 @@ func wordRangeInLine(line string, c int) (int, int) {
 	// signs. Quotes, brackets, braces, commas etc. act as boundaries.
 	isWord := func(r rune) bool {
 		switch r {
-		case ' ', '\t', '"', '\'', '(', ')', '[', ']', '{', '}', '<', '>', ',', ';', '\\':
+		case ' ', '\t', '"', '\'', '(', ')', '[', ']', '{', '}', '<', '>', ',', ';', '\\', '=', '&':
 			return false
 		}
 		return true
