@@ -1,8 +1,7 @@
 package tui
 
 import (
-	"bytes"
-	"encoding/json"
+	"errors"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -237,33 +236,32 @@ func (m *model) activateMenuItem(i int) tea.Cmd {
 
 // formatRequestJSON pretty-prints the JSON body of the request under the cursor,
 // replacing its lines in the editor. It reports an error in the status bar when
-// there is no body or the body is not valid JSON.
+// there is no body or the body is not valid JSON. The formatting itself is
+// shared with the desktop window (httpfile.FormatJSONBody).
 func (m *model) formatRequestJSON() {
 	m.ed.sanitize()
 	req := m.requestForCursor()
-	if req == nil || req.Body == "" {
+	if req == nil {
 		m.status = i18n.T("err.noBodyFormat")
 		return
 	}
-	trimmed := strings.TrimSpace(req.Body)
-	if trimmed == "" || !json.Valid([]byte(trimmed)) {
+
+	formatted, start, end, err := httpfile.FormatJSONBody(*req)
+	switch {
+	case errors.Is(err, httpfile.ErrNoJSONBody):
+		m.status = i18n.T("err.noBodyFormat")
+		return
+	case errors.Is(err, httpfile.ErrNotJSON):
 		m.status = i18n.T("err.notJson")
 		return
-	}
-	var out bytes.Buffer
-	if err := json.Indent(&out, []byte(trimmed), "", "  "); err != nil {
+	case errors.Is(err, httpfile.ErrBodyRange):
+		m.status = i18n.T("err.bodyRange")
+		return
+	case err != nil:
 		m.status = i18n.T("err.formatJson", err.Error())
 		return
 	}
-	if req.BodyStart <= 0 || req.BodyEnd < req.BodyStart {
-		m.status = i18n.T("err.bodyRange")
-		return
-	}
-	// Replace the body line range [BodyStart, BodyEnd] (1-based) with the
-	// formatted JSON. The editor works with 0-based lines.
-	start := req.BodyStart - 1
-	end := req.BodyEnd // exclusive
-	formatted := out.String()
+
 	m.ed.pushUndo() // snapshot current state (no batch active => recorded)
 	m.markDirty()
 	newLines := make([]string, 0, len(m.ed.lines)-(end-start)+1)

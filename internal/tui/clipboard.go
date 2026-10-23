@@ -172,7 +172,7 @@ func (m *model) pasteOrConvert(text string) {
 
 	// If the pasted text looks like a cURL command, convert it into an .http
 	// request automatically (issue #5).
-	if isCurlCommand(text) {
+	if curl.IsCurlCommand(text) {
 		block, err := curl.ImportLine(strings.TrimSpace(text))
 		if err != nil {
 			m.status = i18n.T("err.convertCurl", err.Error())
@@ -221,23 +221,4 @@ func (m *model) insertText(text string) {
 		m.ed.InsertString(lines[li])
 	}
 	m.ed.EnsureVisible()
-}
-
-// isCurlCommand reports whether text looks like a cURL command line.
-func isCurlCommand(text string) bool {
-	t := strings.TrimSpace(text)
-	if t == "" {
-		return false
-	}
-	// strip a leading shell prompt "$ " or "> "
-	t = strings.TrimLeft(t, "$> ")
-	low := strings.ToLower(t)
-	// accept "curl", "curl ", "curl.exe " (common from DevTools copy-as-curl)
-	if strings.HasPrefix(low, "curl.exe") || strings.HasPrefix(low, "curl ") || strings.EqualFold(strings.TrimSpace(t), "curl") {
-		return true
-	}
-	// a multi-line curl with line continuations begins with "curl"
-	return strings.HasPrefix(low, "curl\\") ||
-		strings.HasPrefix(low, "curl\n") ||
-		strings.HasPrefix(low, "curl\r\n")
 }

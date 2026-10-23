@@ -21,8 +21,8 @@ func TestIsCurlCommand(t *testing.T) {
 		{"GET http://x", false},
 	}
 	for _, c := range cases {
-		if got := isCurlCommand(c.in); got != c.want {
-			t.Errorf("isCurlCommand(%q)=%v want %v", c.in, got, c.want)
+		if got := curl.IsCurlCommand(c.in); got != c.want {
+			t.Errorf("curl.IsCurlCommand(%q)=%v want %v", c.in, got, c.want)
 		}
 	}
 }

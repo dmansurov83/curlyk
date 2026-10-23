@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
+	"github.com/user/curlyk/internal/help"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -12,40 +13,6 @@ import (
 // escape sequences are stripped (runewidth is rune-aware for narrow/wide glyphs).
 func displayCellWidth(s string) int {
 	return runewidth.StringWidth(stripANSI(s))
-}
-
-// helpEntry is one row of the key-reference panel shown in the right pane while
-// there is no response yet. key is the literal key combination (never
-// localised); descKey is the i18n key for the action description.
-type helpEntry struct {
-	key     string
-	descKey string
-}
-
-// helpKeyCombos is the ordered list of hotkeys shown at startup. It mirrors the
-// README table and the bindings in keys.go.
-var helpKeyCombos = []helpEntry{
-	{key: "Ctrl+Enter / Ctrl+R", descKey: "help.run"},
-	{key: "Enter", descKey: "help.runMenu"},
-	{key: "Ctrl+K", descKey: "help.copyCurl"},
-	{key: "Ctrl+G", descKey: "help.nav"},
-	{key: "Ctrl+Space", descKey: "help.complete"},
-	{key: "Type to search", descKey: "help.find"},
-	{key: "Ctrl+Z", descKey: "help.undo"},
-	{key: "Ctrl+Shift+Z", descKey: "help.redo"},
-	{key: "Ctrl+Y", descKey: "help.delLine"},
-	{key: "Ctrl+C / Ctrl+X / Ctrl+V", descKey: "help.copy"},
-	{key: "Ctrl+S", descKey: "help.save"},
-	{key: "Ctrl+N", descKey: "help.new"},
-	{key: "Tab", descKey: "help.pane"},
-	{key: "Ctrl+L", descKey: "help.lang"},
-	{key: "Ctrl+] / Ctrl+\\", descKey: "help.theme"},
-	{key: "Ctrl+D", descKey: "help.debug"},
-	{key: "Ctrl+←/→", descKey: "help.words"},
-	{key: "Home", descKey: "help.home"},
-	{key: "Alt+←/→", descKey: "help.hscroll"},
-	{key: "F1", descKey: "help.panel"},
-	{key: "Esc Esc / F10", descKey: "help.quit"},
 }
 
 // helpKeyStyle highlights the key combination; helpDescStyle renders the muted
@@ -104,14 +71,14 @@ func helpFullLines(width int) []string {
 	}
 	out = append(out, "")
 
-	for _, e := range helpKeyCombos {
+	for _, e := range help.TUIKeys {
 		// Reserve room for the key plus two spaces, giving the description what
 		// remains so a narrow pane truncates the description rather than
 		// corrupting non-ASCII/wide key glyphs.
-		key := e.key
+		key := e.Key
 		keyW := displayCellWidth(key)
 		descMax := width - keyW - 2
-		desc := i18n.T(e.descKey)
+		desc := i18n.T(e.DescKey)
 		if descMax < 0 {
 			// The key alone is already wider than the pane; truncate it.
 			descMax = 0
@@ -127,18 +94,20 @@ func helpFullLines(width int) []string {
 	}
 
 	// Variables section: a short reference to the {{...}} substitution syntax.
-	helpVarRows := []string{
+	out = append(out,
 		padToWidth(helpTitleStyle.Render(i18n.T("help.varTitle")), width),
 		"",
 		padToWidth(helpDescStyle.Render(i18n.T("help.varHint")), width),
 		"",
-		padToWidth(helpKeyStyle.Render(i18n.T("help.varDecl")), width),
-		padToWidth(helpDescStyle.Render(i18n.T("help.varUUID")), width),
-		padToWidth(helpDescStyle.Render(i18n.T("help.varInt")), width),
-		padToWidth(helpDescStyle.Render(i18n.T("help.varTime")), width),
-		padToWidth(helpDescStyle.Render(i18n.T("help.varB64")), width),
+	)
+	for _, v := range help.VarLines {
+		text := i18n.T(v.Key)
+		if v.Literal {
+			out = append(out, padToWidth(helpKeyStyle.Render(text), width))
+			continue
+		}
+		out = append(out, padToWidth(helpDescStyle.Render(text), width))
 	}
-	out = append(out, helpVarRows...)
 
 	return out
 }

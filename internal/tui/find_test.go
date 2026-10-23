@@ -65,7 +65,7 @@ func TestFindScrollCentres(t *testing.T) {
 	mx := m.respMaxScroll()
 	// Pick a match in the middle of the body, away from both edges, and verify
 	// it lands centred: scroll = line - vis/2 (within the max-scroll clamp).
-	mid := flat[len(flat)/2].line
+	mid := flat[len(flat)/2].Line
 	m.findCur = len(flat) / 2
 	m.scrollToCurrentMatch()
 	want := mid - vis/2
@@ -80,7 +80,7 @@ func TestFindScrollCentres(t *testing.T) {
 	}
 	// The very last match, near the bottom, must clamp to the max scroll (it
 	// cannot be centred past the end of the body).
-	last := flat[len(flat)-1].line
+	last := flat[len(flat)-1].Line
 	m.findCur = len(flat) - 1
 	m.scrollToCurrentMatch()
 	if m.respScroll != mx {

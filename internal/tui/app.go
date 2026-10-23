@@ -16,6 +16,7 @@ import (
 	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 	"github.com/user/curlyk/internal/runner"
+	"github.com/user/curlyk/internal/search"
 	"github.com/user/curlyk/internal/settings"
 )
 
@@ -88,7 +89,7 @@ type model struct {
 	// findFlat is the flattened, reading-order view of findMatches, built once
 	// per query by refreshFind so the counter and the match navigation reuse it
 	// instead of rebuilding it on every frame.
-	findFlat []findFlat
+	findFlat []search.Match
 	// dirty tracks whether the editor has unsaved changes since the last save.
 	dirty bool
 	// autosaveDeadline is the time until which edits keep postponing the save.

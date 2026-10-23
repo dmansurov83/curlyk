@@ -1,0 +1,58 @@
+name: GUI
+
+# The desktop editor (cmd/curlyk-gui) needs cgo, so it is built and tested here
+# rather than in release.yml, which keeps shipping the TUI (CGO_ENABLED=0) only.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gui:
+    name: GUI build (cgo + MinGW-w64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+
+      - name: Install cgo toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 libgl1-mesa-dev xorg-dev
+
+      - name: Build the Windows GUI (cgo via MinGW-w64)
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '1'
+          CC: x86_64-w64-mingw32-gcc
+        run: |
+          # "-H windowsgui" links the GUI into the Windows "windows" subsystem so
+          # no console window is shown when the binary is launched from Explorer.
+          go build -trimpath -ldflags "-s -w -H windowsgui" -o curlyk-gui-windows-amd64.exe ./cmd/curlyk-gui
+
+      - name: Build the TUI without cgo
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go build -trimpath -ldflags "-s -w" -o curlyk-windows-amd64.exe ./cmd/curlyk
+
+      # Runs on the Linux host, so internal/gui is compiled with cgo against the
+      # X11/GL headers installed above and its tests (which use Fyne's headless
+      # test driver) execute.
+      - name: Test
+        run: go test ./...
+
+      - name: Upload the GUI binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: curlyk-gui-windows-amd64
+          path: curlyk-gui-windows-amd64.exe
+          if-no-files-found: error

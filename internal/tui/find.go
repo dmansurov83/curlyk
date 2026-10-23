@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 	"github.com/user/curlyk/internal/i18n"
+	"github.com/user/curlyk/internal/search"
 )
 
 // searchBox is the unified top-row search bar opened over a non-editable panel
@@ -93,44 +94,33 @@ func (m *model) applyFileFilter(query string) {
 }
 
 // findMatchesFor returns every (case-insensitive) match of query on the response
-// body lines, in reading order (line-major, then column). findMatch carries only
-// the column; the length is always the query length in runes.
+// body lines, in reading order (line-major, then column). The matching itself is
+// the shared, UI-free internal/search model; findMatch adds the precomputed flat
+// index used for highlighting.
 func (m *model) findMatchesFor(query string) [][]findMatch {
 	if query == "" || m.response == "" {
 		return nil
 	}
-	q := []rune(strings.ToLower(query))
-	mr := len(q)
 	lines := respBodyLines(m) // split once: its result is reused for every line
 	perLine := make([][]findMatch, len(lines))
 	idx := 0
 	for li, ln := range lines {
-		low := []rune(strings.ToLower(ln))
 		var lineMatches []findMatch
-		for i := 0; i+mr <= len(low); i++ {
-			if string(low[i:i+mr]) == string(q) {
-				lineMatches = append(lineMatches, findMatch{col: i, idx: idx})
-				idx++
-			}
+		for _, col := range search.FindLine(ln, query) {
+			lineMatches = append(lineMatches, findMatch{col: col, idx: idx})
+			idx++
 		}
 		perLine[li] = lineMatches
 	}
 	return perLine
 }
 
-// findFlat is the flattened, sequential view of findMatches used for the counter
-// and navigation ("match N of M").
-type findFlat struct {
-	line int // body-line index
-	col  int // rune index within the line
-}
-
 // flattenFind flattens perLine matches into sequential order.
-func flattenFind(per [][]findMatch) []findFlat {
-	var out []findFlat
+func flattenFind(per [][]findMatch) []search.Match {
+	var out []search.Match
 	for li, lineMatches := range per {
 		for _, mm := range lineMatches {
-			out = append(out, findFlat{line: li, col: mm.col})
+			out = append(out, search.Match{Line: li, Col: mm.col})
 		}
 	}
 	return out
@@ -140,7 +130,7 @@ func flattenFind(per [][]findMatch) []findFlat {
 // reading order. The slice is built once when the matches are computed
 // (refreshFind) and reused afterwards, so the counter and the match navigation
 // do not rebuild it on every frame.
-func (m *model) findFlatList() []findFlat {
+func (m *model) findFlatList() []search.Match {
 	if m.findFlat == nil && len(m.findMatches) > 0 {
 		m.findFlat = flattenFind(m.findMatches)
 	}
@@ -203,7 +193,7 @@ func (m *model) scrollToCurrentMatch() {
 		m.findCur = 0
 	}
 	fm := flat[m.findCur]
-	bodyLine := fm.line
+	bodyLine := fm.Line
 	// respScroll is body-relative. Visible body rows = pane height minus the
 	// fixed header + copy rows. Centre the matched body line within the
 	// remaining viewport; clamp so the top of the body (scroll 0) and the last
@@ -230,7 +220,7 @@ func (m *model) scrollToCurrentMatch() {
 	if m.respScroll > mx {
 		m.respScroll = mx
 	}
-	m.scrollToMatchColumn(fm.line, fm.col)
+	m.scrollToMatchColumn(fm.Line, fm.Col)
 }
 
 // scrollToMatchColumn scrolls the response pane horizontally so the match at

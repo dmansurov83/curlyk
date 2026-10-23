@@ -111,6 +111,7 @@ var catalogs = map[string]map[string]string{
 		"status.newFile":       "Новый файл (Ctrl+S — сохранить)",
 		"err.save":             "Не удалось сохранить: %s",
 		"status.saved":         "Сохранено в %s",
+		"status.autosaved":     "Сохранено автоматически: %s",
 		"placeholder.filename": "имя файла.http",
 
 		// actionmenu.go
@@ -144,10 +145,11 @@ var catalogs = map[string]map[string]string{
 		"status.curlConverted": "cURL конвертирован в запрос",
 
 		// navigation.go
-		"nav.title":      "Перейти к запросу: %s",
-		"nav.jumped":     "Запрос «%s» (строка %d)",
-		"nav.noRequests": "В файле нет запросов",
-		"nav.noMatches":  "Нет совпадений",
+		"nav.title":             "Перейти к запросу: %s",
+		"nav.filterPlaceholder": "фильтр запросов",
+		"nav.jumped":            "Запрос «%s» (строка %d)",
+		"nav.noRequests":        "В файле нет запросов",
+		"nav.noMatches":         "Нет совпадений",
 
 		// completion.go
 		"completion.accepted": "Подсказка применена",
@@ -164,6 +166,16 @@ var catalogs = map[string]map[string]string{
 		"profile.cancel":          "Отмена",
 		"placeholder.profileName": "имя профиля",
 		"header.profile":          " [профиль: %s]",
+
+		// gui (desktop window, cmd/curlyk-gui)
+		"gui.title":           "curlyk — %s",
+		"gui.findPlaceholder": "поиск",
+		"gui.selection":       "выделено: %d",
+		"gui.noResponse":      "Выполните запрос (Ctrl+Enter)",
+		"gui.findCount":       "%d/%d",
+		"gui.copyResponse":    "⧉ Копировать ответ",
+		"gui.ready":           "Готов. Ctrl+Enter — выполнить, правый клик — меню запроса, Ctrl+F — поиск",
+		"gui.caret":           "%d:%d, строк: %d",
 	},
 	"en": {
 		// app.go statuses & messages
@@ -255,6 +267,7 @@ var catalogs = map[string]map[string]string{
 		"status.newFile":       "New file (Ctrl+S — save)",
 		"err.save":             "Failed to save: %s",
 		"status.saved":         "Saved to %s",
+		"status.autosaved":     "Autosaved: %s",
 		"placeholder.filename": "filename.http",
 
 		// actionmenu.go
@@ -288,10 +301,11 @@ var catalogs = map[string]map[string]string{
 		"status.curlConverted": "cURL converted to request",
 
 		// navigation.go
-		"nav.title":      "Go to request: %s",
-		"nav.jumped":     "Request «%s» (line %d)",
-		"nav.noRequests": "No requests in file",
-		"nav.noMatches":  "No matches",
+		"nav.title":             "Go to request: %s",
+		"nav.filterPlaceholder": "filter requests",
+		"nav.jumped":            "Request «%s» (line %d)",
+		"nav.noRequests":        "No requests in file",
+		"nav.noMatches":         "No matches",
 
 		// completion.go
 		"completion.accepted": "Suggestion applied",
@@ -308,6 +322,16 @@ var catalogs = map[string]map[string]string{
 		"profile.cancel":          "Cancel",
 		"placeholder.profileName": "profile name",
 		"header.profile":          " [profile: %s]",
+
+		// gui (desktop window, cmd/curlyk-gui)
+		"gui.title":           "curlyk — %s",
+		"gui.findPlaceholder": "search",
+		"gui.selection":       "%d selected",
+		"gui.noResponse":      "Run a request (Ctrl+Enter)",
+		"gui.findCount":       "%d/%d",
+		"gui.copyResponse":    "⧉ Copy response",
+		"gui.ready":           "Ready. Ctrl+Enter — run, right click — request menu, Ctrl+F — find",
+		"gui.caret":           "%d:%d, %d lines",
 	},
 }
 
@@ -351,6 +375,18 @@ func Resolve(pref string) string {
 		return pref
 	}
 	return "ru"
+}
+
+// Has reports whether key exists in the catalog for lang. It is used by tests
+// and by packages that share a key list (the help reference) to keep every
+// locale complete.
+func Has(lang, key string) bool {
+	cat := catalogs[lang]
+	if cat == nil {
+		return false
+	}
+	_, ok := cat[key]
+	return ok
 }
 
 // T returns the translated string for key, substituting args with fmt.Sprintf

@@ -1,15 +1,13 @@
 package tui
 
 import (
-	"os"
-	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
+	"github.com/user/curlyk/internal/profiles"
 	"github.com/user/curlyk/internal/settings"
 )
 
@@ -31,23 +29,7 @@ var profileNewSelStyle lipgloss.Style
 
 // profileFilesInDir lists *.profile filenames in path (sorted). These are the
 // available environment profiles whose @var declarations feed request variables.
-func profileFilesInDir(path string) []string {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(strings.ToLower(e.Name()), ".profile") {
-			out = append(out, e.Name())
-		}
-	}
-	slices.Sort(out)
-	return out
-}
+func profileFilesInDir(path string) []string { return profiles.List(path) }
 
 // fileListMaxRows returns how many interior rows the file list area of the left
 // sidebar gets, after reserving room for the profile section at the bottom.
@@ -138,34 +120,18 @@ func (m *model) mouseToProfileRow(y int) (int, bool) {
 // activeProfileVars returns the @var map of the active profile file, or nil if
 // no profile is active or its file cannot be read/parsed.
 func (m *model) activeProfileVars() map[string]string {
-	if m.profile == "" {
-		return nil
-	}
-	data, err := os.ReadFile(m.profile)
-	if err != nil {
-		return nil
-	}
-	return httpfile.ParseProfileVars(string(data))
+	return profiles.Load(".", m.profile)
 }
 
 // defaultProfileName is the file created when no profile exists yet.
-const defaultProfileName = "default.profile"
+const defaultProfileName = profiles.DefaultName
 
 // ensureDefaultProfile creates a default.profile in the working directory when
 // there are no *.profile files at all, so the profile section always has a
 // usable entry and profiling works out of the box. It never overwrites an
 // existing file.
 func ensureDefaultProfile() {
-	if len(profileFilesInDir(".")) > 0 {
-		return
-	}
-	if _, err := os.Stat(defaultProfileName); err == nil {
-		return
-	}
-	content := "# Default profile. Add @var name = value lines.\n" +
-		"@var host = http://localhost\n" +
-		"@var token = \n"
-	_ = os.WriteFile(defaultProfileName, []byte(content), 0o644)
+	_, _ = profiles.EnsureDefault(".")
 }
 
 // beginProfileAs opens a modal dialog to type the name of a new profile.
@@ -192,11 +158,8 @@ func (m *model) beginProfileAs() {
 // createProfile creates a new profile file from the typed name, adds it to the
 // panel and activates it.
 func (m *model) createProfile(name string) {
-	if !strings.HasSuffix(strings.ToLower(name), ".profile") {
-		name += ".profile"
-	}
-	content := "# " + name + "\n@var host = http://localhost\n"
-	if err := os.WriteFile(name, []byte(content), 0o644); err != nil {
+	file, err := profiles.Create(".", name)
+	if err != nil {
 		m.status = i18n.T("err.save", err.Error())
 		return
 	}
@@ -204,8 +167,8 @@ func (m *model) createProfile(name string) {
 		m.filesPanel = &filesPanel{}
 	}
 	m.filesPanel.loadProfiles()
-	m.selectProfile(name)
-	m.status = i18n.T("profile.created", strings.TrimSuffix(name, ".profile"))
+	m.selectProfile(file)
+	m.status = i18n.T("profile.created", profiles.DisplayName(file))
 }
 
 // selectProfile activates a profile by file name. Clicking a profile switches
@@ -236,7 +199,7 @@ func (m *model) setActiveProfile(name string) {
 	}
 	s.ActiveProfile = name
 	_ = s.Save()
-	m.status = i18n.T("profile.activated", strings.TrimSuffix(name, ".profile"))
+	m.status = i18n.T("profile.activated", profiles.DisplayName(name))
 }
 
 // availableProfiles returns the profile file names known to the panel, falling
@@ -254,7 +217,7 @@ func (m *model) availableProfiles() []string {
 func (m *model) profileRowLine(width, idx int, hover bool) string {
 	p := m.filesPanel
 	name := p.profiles[idx]
-	display := strings.TrimSuffix(name, ".profile")
+	display := profiles.DisplayName(name)
 	active := name == m.profile
 	sel := p.onProfiles && !p.profNew && p.profSel == idx
 

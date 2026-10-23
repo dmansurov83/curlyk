@@ -3,11 +3,11 @@ package tui
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/user/curlyk/internal/httpfile"
 	"github.com/user/curlyk/internal/i18n"
 )
 
@@ -45,23 +45,7 @@ func (p *filesPanel) filtered() []string {
 }
 
 // httpFilesInDir lists .http filenames in path (sorted).
-func httpFilesInDir(path string) []string {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(strings.ToLower(e.Name()), ".http") {
-			out = append(out, e.Name())
-		}
-	}
-	slices.Sort(out)
-	return out
-}
+func httpFilesInDir(path string) []string { return httpfile.FilesInDir(path) }
 
 // loadProfiles rescans the working directory for *.profile files into the panel.
 func (p *filesPanel) loadProfiles() {

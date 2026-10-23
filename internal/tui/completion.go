@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"net/url"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -144,90 +143,10 @@ func (m *model) refreshCompletion() {
 }
 
 // buildCompletionContext collects the candidate words for autocomplete from the
-// current buffer, the active profile and the built-in functions.
+// current buffer, the active profile and the built-in functions. The collection
+// itself lives in internal/completion, shared with the desktop window.
 func (m *model) buildCompletionContext() completion.Context {
-	reqs := m.parsedRequests()
-	ctx := completion.Context{}
-	seenHost := map[string]bool{}
-
-	addHost := func(h string) {
-		if h == "" {
-			return
-		}
-		host := hostOf(h)
-		if host == "" || seenHost[host] {
-			return
-		}
-		seenHost[host] = true
-		ctx.Hosts = append(ctx.Hosts, host)
-	}
-
-	// File-level @var map (from the last parsed request).
-	var fileVars map[string]string
-	for _, r := range reqs {
-		for _, h := range r.Headers {
-			ctx.Headers = appendUnique(ctx.Headers, h.Name)
-		}
-		addHost(r.URL)
-		if r.Vars != nil {
-			fileVars = r.Vars
-		}
-	}
-	if fileVars != nil {
-		for name, val := range fileVars {
-			ctx.Vars = appendUnique(ctx.Vars, name)
-			addHost(val)
-		}
-	}
-
-	// Active profile vars and their hosts.
-	if pv := m.activeProfileVars(); len(pv) > 0 {
-		for name, val := range pv {
-			ctx.Vars = appendUnique(ctx.Vars, name)
-			addHost(val)
-		}
-	}
-
-	ctx.Methods = httpMethods()
-	for _, fn := range builtinFuncNames {
-		ctx.Vars = appendUnique(ctx.Vars, fn)
-	}
-	return ctx
-}
-
-// hostOf extracts a bare hostname from a URL string or a raw host value.
-func hostOf(s string) string {
-	u, err := url.Parse(s)
-	if err != nil {
-		return ""
-	}
-	return u.Hostname()
-}
-
-// httpMethods returns the known HTTP method names for completion.
-func httpMethods() []string {
-	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
-}
-
-// builtinFuncNames are the {{$fn}} built-in variable functions offered for
-// variable completion.
-var builtinFuncNames = []string{
-	"$timestamp",
-	"$isoTimestamp",
-	"$random.uuid",
-	"$random.int",
-	"$guid",
-	"b64",
-}
-
-// appendUnique appends s to list when not already present.
-func appendUnique(list []string, s string) []string {
-	for _, e := range list {
-		if e == s {
-			return list
-		}
-	}
-	return append(list, s)
+	return completion.ContextForSource(m.ed.Text(), m.activeProfileVars())
 }
 
 // handleCompletionKey processes keys while the completion popup is open. It

@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/user/curlyk/internal/curl"
 )
 
 func TestFormatBodyJSON(t *testing.T) {
@@ -23,10 +25,10 @@ func TestFormatBodyNonJSON(t *testing.T) {
 }
 
 func TestIsCurlCommandExe(t *testing.T) {
-	if !isCurlCommand(`curl.exe "https://api.test/x" -H "A: b"`) {
+	if !curl.IsCurlCommand(`curl.exe "https://api.test/x" -H "A: b"`) {
 		t.Error("curl.exe should be detected")
 	}
-	if !isCurlCommand("curl https://x") {
+	if !curl.IsCurlCommand("curl https://x") {
 		t.Error("curl should be detected")
 	}
 }

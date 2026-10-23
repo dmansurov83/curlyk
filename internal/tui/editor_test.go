@@ -45,7 +45,8 @@ func TestRenderEditorNoPanic(t *testing.T) {
 	if out == "" {
 		t.Error("empty render")
 	}
-	if !strings.Contains(out, "GET https://httpbin.org/get") {
+	// The request line carries syntax colours now, so compare the visible text.
+	if !strings.Contains(stripANSI(out), "GET https://httpbin.org/get") {
 		t.Error("editor content missing from render")
 	}
 }

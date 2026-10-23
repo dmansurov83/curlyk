@@ -1,12 +1,11 @@
 package tui
 
 import (
-	"bytes"
-	"encoding/json"
 	"strings"
 
 	"github.com/mattn/go-runewidth"
 	"github.com/user/curlyk/internal/httpfile"
+	"github.com/user/curlyk/internal/jsonlex"
 )
 
 // padToWidth pads s (possibly ANSI-coloured) with trailing spaces so its total
@@ -108,20 +107,10 @@ func displayToRune(s string, displayPos int) int {
 
 // formatBody pretty-prints JSON response bodies; non-JSON is returned verbatim.
 // JSON object-key order is preserved (uses json.Indent rather than MarshalIndent).
+// formatBody pretty-prints a response body when JSON. The formatting is shared:
+// jsonlex.Pretty is the single implementation both front ends use.
 func formatBody(body []byte) string {
-	s := string(body)
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return s
-	}
-	if !json.Valid([]byte(trimmed)) {
-		return s
-	}
-	var out bytes.Buffer
-	if err := json.Indent(&out, []byte(trimmed), "", "  "); err != nil {
-		return s
-	}
-	return out.String()
+	return jsonlex.Pretty(body)
 }
 
 // shiftTokensForWindow re-bases syntax tokens (byte offsets into the full line)

@@ -86,7 +86,7 @@ func Lex(src string) []Token {
 
 		// Request line: METHOD URL [HTTP/x.y]
 		if m, urlStr, httpVer, ok := parseRequestLine(line); ok {
-			lt := tokenizeRequestLine(line, m, urlStr, httpVer)
+			lt := tokenizeRequestLine(lineNo, line, m, urlStr, httpVer)
 			for _, t := range lt {
 				toks = append(toks, t)
 			}
@@ -218,8 +218,10 @@ func findHTTPVersion(s string) int {
 }
 
 // tokenizeRequestLine builds method / URL / version tokens given parsed pieces.
-func tokenizeRequestLine(line, method, urlStr, httpVer string) []Token {
-	lineNo := 0 // filled by caller via append; we set Line later is irrelevant
+// The line number is taken from the caller: consumers select tokens per line
+// (the TUI by tk.Line-1, the GUI by the same index), so hard-coding it to 0 made
+// these tokens invisible to every per-line highlighter.
+func tokenizeRequestLine(lineNo int, line, method, urlStr, httpVer string) []Token {
 	// We recompute offsets by scanning.
 	mIdx := strings.Index(line, method)
 	uIdx := mIdx + len(method)

@@ -52,7 +52,7 @@ func (m *model) closeEditBatchIfExpired(now time.Time) {
 // Undo to revert the raw pasted text reliably (no manual range math), then
 // inserts the converted block. Returns true when conversion happened.
 func (m *model) convertBurstCurl(text string) bool {
-	if text == "" || !isCurlCommand(text) {
+	if text == "" || !curl.IsCurlCommand(text) {
 		return false
 	}
 	block, err := curl.ImportLine(strings.TrimSpace(text))
