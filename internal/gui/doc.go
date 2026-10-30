@@ -208,6 +208,27 @@ func (d *doc) moveVertical(delta int) bool {
 	return true
 }
 
+// pageVertical moves the caret a page up (negative delta) or down. A page that
+// would run past the buffer lands on its edge instead of being refused: the very
+// start upward, the very end downward. Without that, the caret would stay a page
+// above the end of the file no matter how often PageDown is pressed.
+func (d *doc) pageVertical(delta int) bool {
+	if delta == 0 {
+		return false
+	}
+	row := d.row + delta
+	if row < 0 {
+		return d.moveDocStart()
+	}
+	if row >= len(d.lines) {
+		return d.moveDocEnd()
+	}
+	d.row = row
+	d.col = d.wantCol
+	d.clamp()
+	return true
+}
+
 // moveLineStart moves the caret to the first rune of the line.
 func (d *doc) moveLineStart() bool {
 	if d.col == 0 {

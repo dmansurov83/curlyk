@@ -18,9 +18,6 @@ const (
 	caretW   = 2
 )
 
-// scrollLinesPerNotch is how many text lines one mouse-wheel notch scrolls.
-const scrollLinesPerNotch = 3
-
 // keyModifiersFn reports the modifiers held right now. Fyne's key events carry
 // no modifier field, so a widget that needs Shift/Ctrl (selection, word jumps)
 // asks the driver, exactly as widget.Entry does. It is a variable so tests can
@@ -502,9 +499,9 @@ func (e *Editor) moveKey(name fyne.KeyName, shift, ctrl bool) {
 			moved = e.doc.moveLineEnd()
 		}
 	case fyne.KeyPageUp:
-		moved = e.doc.moveVertical(-e.visibleRows())
+		moved = e.doc.pageVertical(-e.visibleRows())
 	case fyne.KeyPageDown:
-		moved = e.doc.moveVertical(e.visibleRows())
+		moved = e.doc.pageVertical(e.visibleRows())
 	}
 	if !moved && !shift {
 		e.doc.selClear()
@@ -731,12 +728,13 @@ func (e *Editor) Dragged(ev *fyne.DragEvent) {
 // DragEnd implements fyne.DragEndable.
 func (e *Editor) DragEnd() { e.dragging = false }
 
-// Scrolled implements fyne.Scrollable: the wheel scrolls the viewport. The caret
-// is not moved, so the view can be inspected away from the caret.
+// Scrolled implements fyne.Scrollable: the wheel scrolls the viewport. Fyne's
+// driver already scales one notch to pixels (25 px on Windows, 10 on macOS), so
+// the delta is applied as-is, exactly like the stock scroll containers do. The
+// caret is not moved, so the view can be inspected away from the caret.
 func (e *Editor) Scrolled(ev *fyne.ScrollEvent) {
-	_, lineH := e.metrics()
-	e.scrollY -= ev.Scrolled.DY * lineH * scrollLinesPerNotch
-	e.scrollX -= ev.Scrolled.DX * lineH
+	e.scrollY -= ev.Scrolled.DY
+	e.scrollX -= ev.Scrolled.DX
 	e.clampScroll()
 	e.Refresh()
 }

@@ -238,11 +238,14 @@ func TestVisibleRangeFollowsCaret(t *testing.T) {
 		t.Fatalf("row 150 is outside the visible window %d..%d", first, last)
 	}
 
-	// The wheel moves the viewport without moving the caret.
+	// The wheel moves the viewport without moving the caret. Fyne hands the
+	// scroll delta over in pixels (one notch is 25 px on Windows), so a notch
+	// must move the view by exactly that many pixels, not by a fixed line count.
+	const notch = 25
 	before := e.ScrollY()
-	e.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, -1)})
-	if e.ScrollY() <= before {
-		t.Fatalf("scrolling down left the offset at %v", e.ScrollY())
+	e.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, -notch)})
+	if got := e.ScrollY() - before; got != notch {
+		t.Fatalf("one wheel notch moved the view by %v px, want %v", got, notch)
 	}
 	if e.doc.row != 150 {
 		t.Fatalf("scrolling moved the caret to row %d", e.doc.row)
@@ -403,6 +406,42 @@ func TestDragSelectionRemembersThePressCell(t *testing.T) {
 	})
 	if got := e.doc.selText(); got != "bcd" {
 		t.Fatalf("drag selection = %q, want bcd", got)
+	}
+}
+
+// TestPageKeysReachTheBufferEdges pins that paging down as far as it goes leaves
+// the caret at the very end of the file, and paging up at its start. Before this
+// guard the caret stopped a whole page above the end and PageDown then did
+// nothing at all, so the file could never be reached with the keyboard.
+func TestPageKeysReachTheBufferEdges(t *testing.T) {
+	const last = "last line"
+	e := newTestEditor(t, strings.Repeat("line\n", 199)+last)
+	rows := e.visibleRows()
+	if rows <= 0 || rows >= e.LineCount() {
+		t.Fatalf("visibleRows = %d: the document must span several pages", rows)
+	}
+
+	e.doc.setCaret(0, 0)
+	pressKey(e, fyne.KeyPageDown)
+	if e.doc.row != rows {
+		t.Fatalf("one PageDown moved the caret to row %d, want %d", e.doc.row, rows)
+	}
+
+	for i := 0; i < e.LineCount(); i++ {
+		pressKey(e, fyne.KeyPageDown)
+	}
+	if got, want := e.doc.row, e.LineCount()-1; got != want {
+		t.Fatalf("paging down stopped at row %d, want the last row %d", got, want)
+	}
+	if got, want := e.doc.col, runeLen(last); got != want {
+		t.Fatalf("caret col after paging down = %d, want %d (end of the file)", got, want)
+	}
+
+	for i := 0; i < e.LineCount(); i++ {
+		pressKey(e, fyne.KeyPageUp)
+	}
+	if e.doc.row != 0 || e.doc.col != 0 {
+		t.Fatalf("paging up stopped at (%d,%d), want (0,0)", e.doc.row, e.doc.col)
 	}
 }
 
