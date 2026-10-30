@@ -35,6 +35,20 @@ type Settings struct {
 	// "darkula" or "light") or a custom scheme file `themes/<name>.theme`.
 	// Empty means the default color scheme.
 	Theme string `yaml:"theme,omitempty"`
+	// WindowWidth / WindowHeight remember the desktop window size (its content
+	// area) so the window reopens the size it was closed with. Zero means the
+	// built-in default.
+	WindowWidth  int `yaml:"window_width,omitempty"`
+	WindowHeight int `yaml:"window_height,omitempty"`
+	// WindowMaximized remembers whether the desktop window was maximized
+	// ("развёрнуто во весь экран"), so it reopens that way. While maximized the
+	// stored size keeps the last restored size, not the screen size.
+	WindowMaximized bool `yaml:"window_maximized,omitempty"`
+	// SplitPane and SplitResponse are the divider positions (0..1) of the
+	// desktop window's two splitters — files|editor and editor|response. Zero
+	// means the default layout.
+	SplitPane     float64 `yaml:"split_pane,omitempty"`
+	SplitResponse float64 `yaml:"split_response,omitempty"`
 }
 
 // CursorPos is a remembered cursor position for a single file.

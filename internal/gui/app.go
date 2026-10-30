@@ -42,6 +42,21 @@ Content-Type: application/json
 }
 `
 
+const (
+	// defaultWindowWidth/Height is the window size used the first time, before
+	// the user's own size is remembered.
+	defaultWindowWidth  = 1200
+	defaultWindowHeight = 780
+	// minWindowWidth/Height is the smallest remembered size worth restoring; a
+	// smaller (or missing) value falls back to the default.
+	minWindowWidth  = 640
+	minWindowHeight = 400
+	// defaultSplitPane / defaultSplitResponse are the initial divider positions
+	// of the files|editor and editor|response splitters.
+	defaultSplitPane     = 0.18
+	defaultSplitResponse = 0.64
+)
+
 // pane identifies which of the three panes is active, so its frame can be marked
 // the way the TUI colours the active pane border.
 type pane int
@@ -79,6 +94,12 @@ type ui struct {
 	// filesView is the sidebar widget tree, built once and reused by every
 	// window rebuild.
 	filesView fyne.CanvasObject
+	// outer/inner are the two horizontal splitters (files|editor|response).
+	// Rebuilding the content replaces them, so their divider positions are
+	// carried over through u.settings and read back from the live widgets
+	// before a rebuild or before the window closes.
+	outer *container.Split
+	inner *container.Split
 
 	// lastBody is the raw body of the most recent response, kept so the pane's
 	// "copy body" button can put it on the clipboard independently of the
@@ -141,6 +162,9 @@ func Run() error {
 	})
 
 	u.win.Show()
+	// The platform window exists only after Show, so the maximized state is
+	// reapplied here rather than in newUI.
+	u.restoreWindowState()
 	u.win.Canvas().Focus(u.ed)
 	u.app.Run()
 	return nil
@@ -162,7 +186,7 @@ func newUI(a fyne.App) *ui {
 
 	u.app = a
 	u.win = a.NewWindow(i18n.T("gui.title", i18n.T("file.unnamed")))
-	u.win.Resize(fyne.NewSize(1200, 780))
+	u.win.Resize(windowSize(s))
 
 	u.header = newStrip(u.pal.headerBg, u.pal.headerFg, 14)
 	u.status = newStrip(u.pal.statusBg, u.pal.statusFg, 14)
@@ -251,6 +275,36 @@ func newUI(a fyne.App) *ui {
 	return u
 }
 
+// windowSize is the size the window opens at: the remembered one when it is
+// usable, the built-in default otherwise. Fyne's Resize takes the content area
+// and Canvas().Size() reports it back, so the value survives the round trip.
+func windowSize(s settings.Settings) fyne.Size {
+	if s.WindowWidth >= minWindowWidth && s.WindowHeight >= minWindowHeight {
+		return fyne.NewSize(float32(s.WindowWidth), float32(s.WindowHeight))
+	}
+	return fyne.NewSize(defaultWindowWidth, defaultWindowHeight)
+}
+
+// rememberWindowSize records the current window size in the settings, so the
+// next start reopens at the same size. Sizes that make no sense (an unshown
+// window reports zero) are ignored rather than stored, and while the window is
+// maximized the last restored size is kept — the screen-sized canvas would
+// otherwise become the size the window falls back to when it is unmaximized.
+func (u *ui) rememberWindowSize() {
+	if u.win == nil || u.win.Canvas() == nil {
+		return
+	}
+	if windowIsMaximized(u.win) {
+		return
+	}
+	sz := u.win.Canvas().Size()
+	if sz.Width < minWindowWidth || sz.Height < minWindowHeight {
+		return
+	}
+	u.settings.WindowWidth = int(sz.Width)
+	u.settings.WindowHeight = int(sz.Height)
+}
+
 // buildContent assembles the window: the header line, the three panes and the
 // status line, exactly the row order the console uses.
 func (u *ui) buildContent() fyne.CanvasObject {
@@ -273,17 +327,39 @@ func (u *ui) topRow() fyne.CanvasObject {
 }
 
 // panes builds the three panes: files, editor and response, each in a frame that
-// marks the active one.
+// marks the active one. The splitters are recreated on every rebuild, so the
+// divider positions the user chose are carried over through the settings.
 func (u *ui) panes() fyne.CanvasObject {
 	files := u.framedPane(paneFiles, u.filesView)
 	editor := u.framedPane(paneEditor, u.ed)
 	resp := u.framedPane(paneResp, u.responsePane())
 
-	inner := container.NewHSplit(editor, resp)
-	inner.SetOffset(0.64)
-	outer := container.NewHSplit(files, inner)
-	outer.SetOffset(0.18)
-	return outer
+	u.inner = container.NewHSplit(editor, resp)
+	u.inner.SetOffset(splitOffset(u.settings.SplitResponse, defaultSplitResponse))
+	u.outer = container.NewHSplit(files, u.inner)
+	u.outer.SetOffset(splitOffset(u.settings.SplitPane, defaultSplitPane))
+	return u.outer
+}
+
+// splitOffset clamps a remembered divider position, falling back to the default
+// when the stored value is out of range.
+func splitOffset(v, def float64) float64 {
+	if v > 0 && v < 1 {
+		return v
+	}
+	return def
+}
+
+// rememberLayout records the current divider positions in the settings. The
+// splitters are rebuilt together with the panes, so this preserves a dragged
+// divider across a rebuild and across restarts.
+func (u *ui) rememberLayout() {
+	if u.outer != nil {
+		u.settings.SplitPane = splitOffset(u.outer.Offset, u.settings.SplitPane)
+	}
+	if u.inner != nil {
+		u.settings.SplitResponse = splitOffset(u.inner.Offset, u.settings.SplitResponse)
+	}
 }
 
 // framedPane wraps a pane in a 2px border: the active pane gets the accent
@@ -314,6 +390,10 @@ func (u *ui) refreshContent() {
 		return
 	}
 	u.building = true
+	// The splitters are part of the content, so their positions are read back
+	// before they are thrown away; otherwise every pane click would reset the
+	// layout to the defaults.
+	u.rememberLayout()
 	u.win.SetContent(u.buildContent())
 	// Only the active pane takes the keyboard: focusing the editor after every
 	// rebuild would immediately steal the active mark from the files pane.
@@ -1199,6 +1279,9 @@ func (u *ui) persistSession() {
 		u.spinner.Stop()
 	}
 	u.rememberCaret()
+	u.rememberWindowState()
+	u.rememberWindowSize()
+	u.rememberLayout()
 	if len(u.caret) > 0 {
 		if u.settings.FileCursors == nil {
 			u.settings.FileCursors = map[string]settings.CursorPos{}

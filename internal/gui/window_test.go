@@ -618,3 +618,154 @@ func TestFileRowHoverHighlight(t *testing.T) {
 		t.Fatalf("MouseOut removed the open-file highlight: %v", got)
 	}
 }
+
+// TestWindowSizeIsRemembered covers the reported defect: the window always
+// reopened at the hardcoded size instead of the one it was closed with.
+func TestWindowSizeIsRemembered(t *testing.T) {
+	u := newTestUI(t)
+	u.win.Resize(fyne.NewSize(1000, 640))
+	u.persistSession()
+
+	saved := settings.Load()
+	if saved.WindowWidth != 1000 || saved.WindowHeight != 640 {
+		t.Fatalf("stored window size = %dx%d, want 1000x640", saved.WindowWidth, saved.WindowHeight)
+	}
+
+	u2 := newUI(fyne.CurrentApp())
+	if got := u2.win.Canvas().Size(); got.Width != 1000 || got.Height != 640 {
+		t.Fatalf("reopened window size = %v, want 1000x640", got)
+	}
+}
+
+// TestWindowSizeFallsBackToTheDefaultWhenUnusable keeps a degenerate stored size
+// (an unshown window reports zero) from shrinking the window to nothing.
+func TestWindowSizeFallsBackToTheDefaultWhenUnusable(t *testing.T) {
+	u := newTestUI(t)
+	u.win.Resize(fyne.NewSize(100, 100))
+	u.rememberWindowSize()
+	if u.settings.WindowWidth != 0 || u.settings.WindowHeight != 0 {
+		t.Fatalf("a tiny canvas size was stored: %dx%d", u.settings.WindowWidth, u.settings.WindowHeight)
+	}
+
+	got := windowSize(settings.Settings{WindowWidth: 10, WindowHeight: 10})
+	if got.Width != defaultWindowWidth || got.Height != defaultWindowHeight {
+		t.Fatalf("windowSize with a tiny remembered size = %v, want the default", got)
+	}
+}
+
+// TestSplitSizesSurviveAPaneClick is the regression guard for the second
+// reported defect: clicking a pane rebuilt the window content, which replaced
+// the splitters and reset their dividers to the defaults.
+func TestSplitSizesSurviveAPaneClick(t *testing.T) {
+	u := newTestUI(t)
+	u.outer.SetOffset(0.3)
+	u.inner.SetOffset(0.5)
+
+	u.setActive(paneFiles)
+	u.setActive(paneResp)
+	u.setActive(paneEditor)
+
+	if got := u.outer.Offset; got < 0.299 || got > 0.301 {
+		t.Fatalf("files|editor divider after a pane click = %v, want 0.3", got)
+	}
+	if got := u.inner.Offset; got < 0.499 || got > 0.501 {
+		t.Fatalf("editor|response divider after a pane click = %v, want 0.5", got)
+	}
+}
+
+// TestSplitSizesAreRemembered covers the persistence half: the divider
+// positions are stored on close and restored in a fresh window.
+func TestSplitSizesAreRemembered(t *testing.T) {
+	u := newTestUI(t)
+	u.outer.SetOffset(0.25)
+	u.inner.SetOffset(0.7)
+	u.persistSession()
+
+	saved := settings.Load()
+	if saved.SplitPane < 0.249 || saved.SplitPane > 0.251 {
+		t.Fatalf("stored files|editor divider = %v, want 0.25", saved.SplitPane)
+	}
+	if saved.SplitResponse < 0.699 || saved.SplitResponse > 0.701 {
+		t.Fatalf("stored editor|response divider = %v, want 0.7", saved.SplitResponse)
+	}
+
+	u2 := newUI(fyne.CurrentApp())
+	if got := u2.outer.Offset; got < 0.249 || got > 0.251 {
+		t.Fatalf("restored files|editor divider = %v, want 0.25", got)
+	}
+	if got := u2.inner.Offset; got < 0.699 || got > 0.701 {
+		t.Fatalf("restored editor|response divider = %v, want 0.7", got)
+	}
+}
+
+// fakeWindowState makes the platform maximize hooks test-controlled: it reports
+// the given maximized state and records every request to apply one. A real OS
+// window is not available on the headless test driver, so the state logic is
+// checked through the hooks.
+type fakeWindowState struct {
+	maximized bool
+	calls     []bool
+}
+
+func newFakeWindowState(t *testing.T, maximized bool) *fakeWindowState {
+	t.Helper()
+	f := &fakeWindowState{maximized: maximized}
+	oldIs, oldSet := windowIsMaximized, windowSetMaximized
+	windowIsMaximized = func(fyne.Window) bool { return f.maximized }
+	windowSetMaximized = func(_ fyne.Window, max bool) { f.calls = append(f.calls, max) }
+	t.Cleanup(func() { windowIsMaximized, windowSetMaximized = oldIs, oldSet })
+	return f
+}
+
+// TestMaximizedStateIsRemembered covers the reported defect: a window closed
+// maximized ("развёрнуто во весь экран") must reopen maximized.
+func TestMaximizedStateIsRemembered(t *testing.T) {
+	state := newFakeWindowState(t, true)
+	u := newTestUI(t)
+	u.persistSession()
+
+	saved := settings.Load()
+	if !saved.WindowMaximized {
+		t.Fatal("the maximized state was not stored")
+	}
+	// The screen-sized canvas must not become the restored size.
+	if saved.WindowWidth != 0 || saved.WindowHeight != 0 {
+		t.Fatalf("maximized window stored size %dx%d, want the previous one kept",
+			saved.WindowWidth, saved.WindowHeight)
+	}
+	if len(state.calls) != 0 {
+		t.Fatalf("persisting applied a window state: %v", state.calls)
+	}
+
+	u2 := newUI(fyne.CurrentApp())
+	if !u2.settings.WindowMaximized {
+		t.Fatal("the maximized state was not loaded")
+	}
+	u2.restoreWindowState()
+	if len(state.calls) != 1 || !state.calls[0] {
+		t.Fatalf("restore applied %v, want a single maximize", state.calls)
+	}
+}
+
+// TestWindowedStateIsRemembered is the other half: a normal window clears the
+// flag and still stores its size.
+func TestWindowedStateIsRemembered(t *testing.T) {
+	state := newFakeWindowState(t, false)
+	u := newTestUI(t)
+	u.win.Resize(fyne.NewSize(1000, 640))
+	u.persistSession()
+
+	saved := settings.Load()
+	if saved.WindowMaximized {
+		t.Fatal("a normal window stored the maximized state")
+	}
+	if saved.WindowWidth != 1000 || saved.WindowHeight != 640 {
+		t.Fatalf("stored window size = %dx%d, want 1000x640", saved.WindowWidth, saved.WindowHeight)
+	}
+
+	u2 := newUI(fyne.CurrentApp())
+	u2.restoreWindowState()
+	if len(state.calls) != 0 {
+		t.Fatalf("restore applied %v for a normal window", state.calls)
+	}
+}
